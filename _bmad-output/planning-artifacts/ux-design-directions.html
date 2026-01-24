@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>traccia-bmad-test Design Directions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        signal: {
+                            safe: '#10B981', // emerald-500
+                            risk: '#F43F5E', // rose-500
+                            warn: '#F59E0B', // amber-500
+                        },
+                        brand: '#4F46E5', // indigo-600
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-100 text-slate-900 font-sans h-screen overflow-hidden flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-bold tracking-tight text-gray-900">traccia-bmad-test <span class="text-gray-400 font-normal">Design Exploration</span></h1>
+            <div class="flex bg-gray-100 p-1 rounded-lg text-sm">
+                <button onclick="switchView('split')" id="btn-split" class="px-3 py-1 rounded-md bg-white shadow text-gray-900 font-medium transition-all">Split View</button>
+                <button onclick="switchView('map')" id="btn-map" class="px-3 py-1 rounded-md text-gray-500 hover:text-gray-900 font-medium transition-all">Map First</button>
+                <button onclick="switchView('notebook')" id="btn-notebook" class="px-3 py-1 rounded-md text-gray-500 hover:text-gray-900 font-medium transition-all">Notebook</button>
+                <button onclick="switchView('swiss')" id="btn-swiss" class="px-3 py-1 rounded-md text-gray-500 hover:text-gray-900 font-medium transition-all">Swiss/Brutalist</button>
+            </div>
+        </div>
+        <div class="text-sm text-gray-500">
+            Click distinct buttons above to compare directions
+        </div>
+    </header>
+
+    <!-- Canvas -->
+    <main id="canvas" class="flex-1 relative bg-gray-50 overflow-hidden">
+        
+        <!-- DIRECTION 1: SPLIT VIEW (Command Center) -->
+        <div id="view-split" class="view-container absolute inset-0 flex">
+            <!-- Left Sidebar: Timeline -->
+            <div class="w-[450px] bg-white border-r border-gray-200 flex flex-col h-full shadow-xl z-10">
+                <!-- Search Header -->
+                <div class="p-4 border-b border-gray-100 bg-white sticky top-0 z-20">
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400 group-focus-within:text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        <input type="text" class="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand focus:border-transparent transition-all shadow-sm" placeholder="Where to next?" value="">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <span class="text-gray-400 text-xs border border-gray-200 rounded px-1.5 py-0.5">⌘K</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline Stream -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-0 relative">
+                    <!-- Vertical Line -->
+                    <div class="absolute left-[27px] top-4 bottom-4 w-0.5 bg-gray-200 z-0"></div>
+
+                    <!-- Item 1: Hotel -->
+                    <div class="relative pl-8 pb-8 group">
+                        <div class="absolute left-0 top-1 w-3.5 h-3.5 bg-slate-900 rounded-full border-2 border-white shadow z-10"></div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm group-hover:shadow-md hover:border-brand transition-all cursor-pointer relative overflow-hidden">
+                            <div class="flex justify-between items-start mb-1">
+                                <h3 class="font-semibold text-gray-900">APA Hotel Shinjuku</h3>
+                                <span class="tabular-nums font-mono text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">08:00</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-2">Checkout & Bag Drop</p>
+                        </div>
+                    </div>
+
+                    <!-- Transit Ribbon (Walk) -->
+                    <div class="relative pl-8 pb-8">
+                        <div class="absolute left-[3px] top-[-20px] bottom-[20px] w-0.5 bg-gray-200 border-l-2 border-dashed border-gray-300 z-0"></div>
+                         <div class="ml-4 flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded w-fit border border-gray-100">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            <span class="tabular-nums">15 min walk</span>
+                            <span class="text-gray-300">|</span>
+                            <span class="text-gray-400">1.2 km</span>
+                        </div>
+                    </div>
+
+                    <!-- Item 2: Station -->
+                    <div class="relative pl-8 pb-8 group">
+                        <div class="absolute left-0 top-1 w-3.5 h-3.5 bg-white border-[3px] border-signal-safe rounded-full shadow z-10"></div>
+                        <div class="bg-white border-l-4 border-l-signal-safe border-y border-r border-gray-200 rounded-r-lg p-4 shadow-sm hover:shadow-md transition-all">
+                            <div class="flex justify-between items-start mb-1">
+                                <h3 class="font-semibold text-gray-900">Shinjuku Station</h3>
+                                <span class="tabular-nums font-mono text-xs text-signal-safe font-bold bg-green-50 px-1.5 py-0.5 rounded">08:15</span>
+                            </div>
+                            <div class="flex gap-2 text-xs mt-2">
+                                <span class="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono">Platform 4</span>
+                                <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">On Time</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Item 3: Tight Connection (Warning) -->
+                    <div class="relative pl-8 pb-8 group">
+                        <div class="absolute left-0 top-1 w-3.5 h-3.5 bg-white border-[3px] border-signal-warn rounded-full shadow z-10"></div>
+                         <!-- Transit Warning -->
+                         <div class="absolute -left-3 top-[-30px] bg-signal-warn text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-20">
+                            TIGHT
+                        </div>
+                        <div class="bg-white border-l-4 border-l-signal-warn border-y border-r border-gray-200 rounded-r-lg p-4 shadow-sm opacity-90">
+                            <div class="flex justify-between items-start mb-1">
+                                <h3 class="font-semibold text-gray-900">Narita Express 33</h3>
+                                <span class="tabular-nums font-mono text-xs text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">08:22</span>
+                            </div>
+                            <p class="text-xs text-amber-600 mt-1">⚠️ 7 min transfer buffer is risky</p>
+                        </div>
+                    </div>
+                    
+                     <!-- Gap (Opportunity) -->
+                    <div class="relative pl-8 pb-8 group cursor-pointer">
+                        <div class="absolute left-[3px] top-0 bottom-0 w-0.5 border-l-2 border-dotted border-gray-300 z-0"></div>
+                        <div class="h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center text-gray-400 hover:border-brand hover:text-brand hover:bg-indigo-50 transition-all gap-2 group-hover:scale-[1.02] transform duration-200">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                            <span class="text-sm font-medium">Fill 2h Gap</span>
+                        </div>
+                         <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full pl-4 opacity-0 group-hover:opacity-100 transition-all">
+                             <div class="bg-slate-800 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                                 Recommend: Coffee or Park
+                             </div>
+                         </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Right Pane: Map -->
+            <div class="flex-1 bg-slate-100 relative">
+                 <!-- Mock Map -->
+                 <div class="absolute inset-0 bg-slate-200" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/e/ec/Map_of_Shinjuku_Station_surroundings.png'); background-size: cover; background-position: center; opacity: 0.6; filter: grayscale(100%);"></div>
+                 
+                 <!-- Map Pins -->
+                 <div class="absolute top-[30%] left-[40%] transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+                     <div class="bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded shadow-lg mb-1">APA Hotel</div>
+                     <div class="w-4 h-4 bg-slate-900 rounded-full border-2 border-white shadow-lg"></div>
+                 </div>
+                 
+                 <div class="absolute top-[35%] left-[42%] transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+                     <div class="bg-signal-safe text-white text-xs font-bold px-2 py-1 rounded shadow-lg mb-1">Station</div>
+                     <div class="w-4 h-4 bg-signal-safe rounded-full border-2 border-white shadow-lg"></div>
+                 </div>
+                 
+                 <!-- Connecting Line on Map -->
+                 <svg class="absolute inset-0 pointer-events-none w-full h-full">
+                     <path d="M 500 300 L 530 350" stroke="#94a3b8" stroke-width="3" stroke-dasharray="6 4" fill="none" />
+                 </svg>
+            </div>
+        </div>
+
+        <!-- DIRECTION 2: MAP FIRST (Floating Island) -->
+        <div id="view-map" class="view-container absolute inset-0 hidden">
+             <div class="absolute inset-0 bg-slate-200" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/e/ec/Map_of_Shinjuku_Station_surroundings.png'); background-size: cover; background-position: center; filter: grayscale(50%);"></div>
+             
+             <!-- Floating Search Bar -->
+             <div class="absolute top-6 left-6 z-30 w-[360px]">
+                 <div class="bg-white rounded-xl shadow-2xl p-2 flex items-center gap-2 border border-gray-100">
+                     <div class="w-10 h-10 bg-black text-white rounded-lg flex items-center justify-center shrink-0">
+                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                     </div>
+                     <input type="text" placeholder="Where to?" class="flex-1 bg-transparent border-none focus:ring-0 text-lg font-medium placeholder-gray-400">
+                 </div>
+             </div>
+
+             <!-- Bottom Sheet / Cards -->
+             <div class="absolute bottom-8 left-6 right-6 z-30 flex gap-4 overflow-x-auto pb-4 snap-x">
+                 <!-- Card 1 -->
+                 <div class="bg-white w-[300px] shrink-0 rounded-xl shadow-2xl p-5 border border-gray-100 snap-center transform hover:-translate-y-2 transition-all cursor-pointer">
+                     <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">08:00 AM</div>
+                     <h3 class="text-xl font-bold text-gray-900 mb-1">APA Hotel Shinjuku</h3>
+                     <p class="text-sm text-gray-500">Checkout & Bag Drop</p>
+                 </div>
+                 
+                 <!-- Connector -->
+                 <div class="flex items-center justify-center shrink-0 w-12 text-gray-500 bg-white/80 rounded-full h-12 self-center shadow backdrop-blur">
+                     <span class="text-xs font-bold">15m</span>
+                 </div>
+
+                 <!-- Card 2 -->
+                 <div class="bg-white w-[300px] shrink-0 rounded-xl shadow-2xl p-5 border-l-4 border-l-green-500 snap-center relative overflow-hidden">
+                     <div class="absolute right-0 top-0 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl">ON TIME</div>
+                     <div class="text-xs font-bold text-green-600 uppercase tracking-wider mb-2">08:15 AM</div>
+                     <h3 class="text-xl font-bold text-gray-900 mb-1">Shinjuku Station</h3>
+                     <p class="text-sm text-gray-500">Platform 4 • Narita Express</p>
+                 </div>
+             </div>
+        </div>
+
+        <!-- DIRECTION 3: SWISS / BRUTALIST (Field Guide) -->
+        <div id="view-swiss" class="view-container absolute inset-0 hidden bg-white flex flex-col">
+            <!-- Header -->
+            <div class="border-b-4 border-black p-6 flex justify-between items-end bg-yellow-400">
+                <h1 class="text-6xl font-black tracking-tighter uppercase leading-none">Tokyo<br>Day 03</h1>
+                <div class="text-right font-mono text-sm font-bold">
+                    JAN 24 2026<br>
+                    CLEAR SKY<br>
+                    HIGH 12°C
+                </div>
+            </div>
+
+            <!-- Content Grid -->
+            <div class="flex-1 grid grid-cols-12 h-full">
+                <!-- Time Column -->
+                <div class="col-span-2 border-r border-black p-4 font-mono text-xl text-right bg-gray-50">
+                    <div class="h-32 pt-2">08:00</div>
+                    <div class="h-32 pt-2 text-gray-400">08:15</div>
+                    <div class="h-32 pt-2">09:00</div>
+                </div>
+
+                <!-- Events Column -->
+                <div class="col-span-6 border-r border-black">
+                    <!-- Event 1 -->
+                    <div class="h-32 border-b border-black p-6 flex items-start justify-between group hover:bg-black hover:text-white transition-colors cursor-pointer">
+                        <div>
+                            <h2 class="text-3xl font-bold uppercase tracking-tight">APA Hotel</h2>
+                            <p class="font-mono mt-1 group-hover:text-gray-300">Checkout</p>
+                        </div>
+                        <div class="border-2 border-current px-3 py-1 font-mono font-bold rounded-full">📍 MAP</div>
+                    </div>
+                    
+                    <!-- Transit -->
+                    <div class="h-16 border-b border-black bg-gray-100 flex items-center px-6 gap-4 font-mono text-sm uppercase">
+                        <div class="w-2 h-2 bg-black rounded-full animate-pulse"></div>
+                        <span>Transfer: Walk 15 min</span>
+                        <div class="flex-1 border-b border-dashed border-black"></div>
+                        <span>1.2 KM</span>
+                    </div>
+
+                    <!-- Event 2 -->
+                     <div class="h-32 border-b border-black p-6 flex items-start justify-between relative overflow-hidden">
+                         <div class="absolute inset-0 bg-stripes opacity-10 pointer-events-none"></div>
+                        <div>
+                            <h2 class="text-3xl font-bold uppercase tracking-tight">Shinjuku Stn</h2>
+                            <p class="font-mono mt-1 text-red-600 bg-red-50 inline-block px-1">⚠️ Tight Connection</p>
+                        </div>
+                        <div class="bg-black text-white px-3 py-1 font-mono font-bold">PLAT 4</div>
+                    </div>
+                </div>
+
+                <!-- Context/Map Column -->
+                <div class="col-span-4 bg-gray-100 p-6 flex flex-col gap-6">
+                    <div class="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <h3 class="font-bold uppercase border-b-2 border-black mb-2 pb-1">Taxi Card</h3>
+                        <p class="text-2xl font-serif">新宿駅</p>
+                        <p class="text-sm text-gray-500 mt-1">Shinjuku Station</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- DIRECTION 4: NOTEBOOK (Text Focused) -->
+        <div id="view-notebook" class="view-container absolute inset-0 hidden bg-[#FDFBF7] flex justify-center overflow-y-auto">
+            <div class="w-[800px] min-h-screen bg-white shadow-sm my-10 p-16 border border-gray-200">
+                <div class="mb-10">
+                     <h1 class="text-4xl font-serif text-gray-900 mb-2">Tokyo Itinerary</h1>
+                     <p class="text-gray-500 font-serif italic">Saturday, January 24th</p>
+                </div>
+
+                <div class="space-y-8 relative">
+                    <div class="absolute left-24 top-2 bottom-0 w-px bg-gray-200"></div>
+
+                    <!-- Item -->
+                    <div class="flex gap-8 group">
+                        <div class="w-16 text-right font-mono text-sm text-gray-400 pt-1">08:00</div>
+                        <div class="flex-1 pb-8 border-b border-gray-100">
+                            <h3 class="text-lg font-medium text-gray-900">APA Hotel Shinjuku</h3>
+                            <p class="text-gray-600 mt-1 leading-relaxed">Check out of the room. Leave bags at the front desk if needed, but likely bringing them to the station lockers.</p>
+                            <div class="mt-4 flex gap-2">
+                                <span class="px-2 py-1 bg-gray-50 text-xs text-gray-500 border border-gray-200 rounded">Hotel</span>
+                                <span class="px-2 py-1 bg-gray-50 text-xs text-gray-500 border border-gray-200 rounded">Checkout</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Item -->
+                     <div class="flex gap-8 group">
+                        <div class="w-16 text-right font-mono text-sm text-gray-400 pt-1">08:15</div>
+                        <div class="flex-1 pb-8 border-b border-gray-100">
+                            <h3 class="text-lg font-medium text-gray-900">Shinjuku Station</h3>
+                            <div class="bg-orange-50 border border-orange-100 p-3 rounded-md mt-2 mb-2 text-sm text-orange-800 flex gap-2 items-start">
+                                <span>⚠️</span>
+                                <p>You only have 7 minutes to find the platform. This is tight for Shinjuku station.</p>
+                            </div>
+                            <p class="text-gray-600 mt-1 leading-relaxed">Head to Platform 4 for the Narita Express. Grab a bento box from the Ekiben shop near the South Gate.</p>
+                        </div>
+                    </div>
+
+                    <!-- Add Button -->
+                    <div class="ml-24 mt-4">
+                        <button class="text-gray-400 hover:text-gray-900 flex items-center gap-2 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                            <span class="font-medium">Add stop</span>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        function switchView(viewName) {
+            // Hide all views
+            document.querySelectorAll('.view-container').forEach(el => el.classList.add('hidden'));
+            
+            // Show selected view
+            document.getElementById('view-' + viewName).classList.remove('hidden');
+            
+            // Update button states
+            document.querySelectorAll('header button').forEach(btn => {
+                if(btn.id === 'btn-' + viewName) {
+                    btn.classList.add('bg-white', 'shadow', 'text-gray-900');
+                    btn.classList.remove('text-gray-500');
+                } else {
+                    btn.classList.remove('bg-white', 'shadow', 'text-gray-900');
+                    btn.classList.add('text-gray-500');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
