@@ -1,0 +1,99 @@
+# Workflow Status Template
+# 
+# This tracks progress through BMM methodology Analysis, Planning, and Solutioning phases.
+# Implementation phase is tracked separately in sprint-status.yaml
+
+# STATUS DEFINITIONS:
+# ==================
+# Initial Status (before completion):
+#   - required: Must be completed to progress
+#   - optional: Can be completed but not required
+#   - recommended: Strongly suggested but not required
+#   - conditional: Required only if certain conditions met (e.g., if_has_ui)
+#
+# Completion Status:
+#   - {file-path}: File created/found (e.g., "docs/product-brief.md")
+#   - skipped: Optional/conditional workflow that was skipped
+
+generated: "2026-01-19T10:07:16Z"
+project: "Traccia"
+project_type: "New Project"
+selected_track: "BMad Method"
+field_type: "greenfield"
+workflow_path: "_bmad/bmm/workflows/workflow-status/paths/method-greenfield.yaml"
+workflow_status:
+  - phase: 1
+    name: "Analysis (Optional)"
+    workflows:
+      - id: "brainstorm-project"
+        status: "_bmad-output/planning-artifacts/brainstorming.md"
+        agent: "analyst"
+        command: "/bmad:bmm:workflows:brainstorming"
+        exec: "{project-root}/_bmad/core/workflows/brainstorming/workflow.md"
+        output: "{planning_artifacts}/brainstorming.md"
+      - id: "research"
+        status: "_bmad-output/planning-artifacts/research/market-unified-travel-app-research-2026-01-19.md"
+        agent: "analyst"
+        command: "/bmad:bmm:workflows:research"
+        exec: "{project-root}/_bmad/bmm/workflows/1-analysis/research/workflow.md"
+        output: "{planning_artifacts}/research/research-summary.md"
+      - id: "product-brief"
+        status: "_bmad-output/planning-artifacts/product-brief-traccia-bmad-test-2026-01-20.md"
+        agent: "analyst"
+        command: "/bmad:bmm:workflows:create-product-brief"
+        exec: "{project-root}/_bmad/bmm/workflows/1-analysis/create-product-brief/workflow.md"
+        output: "{planning_artifacts}/product-brief.md"
+
+  - phase: 2
+    name: "Planning"
+    workflows:
+      - id: "prd"
+        status: "required"
+        agent: "pm"
+        command: "/bmad:bmm:workflows:create-prd"
+        exec: "{project-root}/_bmad/bmm/workflows/2-plan-workflows/prd/workflow.md"
+        output: "{planning_artifacts}/prd.md"
+      - id: "create-ux-design"
+        status: "conditional"
+        agent: "ux-designer"
+        command: "/bmad:bmm:workflows:create-ux-design"
+        exec: "{project-root}/_bmad/bmm/workflows/2-plan-workflows/create-ux-design/workflow.md"
+        output: "{planning_artifacts}/ux-design.md"
+
+  - phase: 3
+    name: "Solutioning"
+    workflows:
+      - id: "create-architecture"
+        status: "required"
+        agent: "architect"
+        command: "/bmad:bmm:workflows:create-architecture"
+        exec: "{project-root}/_bmad/bmm/workflows/3-solutioning/create-architecture/workflow.md"
+        output: "{planning_artifacts}/architecture.md"
+      - id: "create-epics-and-stories"
+        status: "required"
+        agent: "pm"
+        command: "/bmad:bmm:workflows:create-epics-and-stories"
+        exec: "{project-root}/_bmad/bmm/workflows/3-solutioning/create-epics-and-stories/workflow.md"
+        output: "{planning_artifacts}/epics-and-stories.md"
+      - id: "test-design"
+        status: "optional"
+        agent: "tea"
+        command: "/bmad:bmm:workflows:test-design"
+        workflow: "{project-root}/_bmad/bmm/workflows/testarch/test-design/workflow.yaml"
+        output: "{planning_artifacts}/test-design.md"
+      - id: "implementation-readiness"
+        status: "required"
+        agent: "architect"
+        command: "/bmad:bmm:workflows:implementation-readiness"
+        exec: "{project-root}/_bmad/bmm/workflows/3-solutioning/check-implementation-readiness/workflow.md"
+        output: "{planning_artifacts}/implementation-readiness.md"
+
+  - phase: 4
+    name: "Implementation"
+    workflows:
+      - id: "sprint-planning"
+        status: "required"
+        agent: "sm"
+        command: "/bmad:bmm:workflows:sprint-planning"
+        workflow: "{project-root}/_bmad/bmm/workflows/4-implementation/sprint-planning/workflow.yaml"
+        output: "{planning_artifacts}/sprint-plan.md"
