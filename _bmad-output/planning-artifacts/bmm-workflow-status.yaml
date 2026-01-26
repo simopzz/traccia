@@ -70,7 +70,7 @@ workflow_status:
         exec: "{project-root}/_bmad/bmm/workflows/3-solutioning/create-architecture/workflow.md"
         output: "{planning_artifacts}/architecture.md"
       - id: "create-epics-and-stories"
-        status: "required"
+        status: "_bmad-output/planning-artifacts/epics.md"
         agent: "pm"
         command: "/bmad:bmm:workflows:create-epics-and-stories"
         exec: "{project-root}/_bmad/bmm/workflows/3-solutioning/create-epics-and-stories/workflow.md"
