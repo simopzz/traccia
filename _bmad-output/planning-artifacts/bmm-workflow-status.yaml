@@ -64,7 +64,7 @@ workflow_status:
     name: "Solutioning"
     workflows:
       - id: "create-architecture"
-        status: "required"
+        status: "_bmad-output/planning-artifacts/architecture.md"
         agent: "architect"
         command: "/bmad:bmm:workflows:create-architecture"
         exec: "{project-root}/_bmad/bmm/workflows/3-solutioning/create-architecture/workflow.md"
