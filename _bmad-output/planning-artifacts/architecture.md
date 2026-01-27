@@ -4,9 +4,9 @@ inputDocuments:
   - _bmad-output/planning-artifacts/prd.md
   - _bmad-output/planning-artifacts/ux-design-specification.md
   - _bmad-output/planning-artifacts/research/market-unified-travel-app-research-2026-01-19.md
-  - _bmad-output/planning-artifacts/product-brief-traccia-bmad-test-2026-01-20.md
+  - _bmad-output/planning-artifacts/product-brief-traccia-2026-01-20.md
 workflowType: 'architecture'
-project_name: 'traccia-bmad-test'
+project_name: 'traccia'
 user_name: 'simo'
 date: '2026-01-26'
 status: 'complete'
@@ -71,7 +71,7 @@ Go Blueprint is the industry-standard CLI for modern Go web apps. It allows us t
 go install github.com/melkeydev/go-blueprint@latest
 
 # Create the project with our specific stack
-go-blueprint create --name traccia-bmad-test \
+go-blueprint create --name traccia \
   --framework chi \
   --driver postgres \
   --advanced \
@@ -191,7 +191,7 @@ Code is organized by **Domain Feature**, not by technical layer.
 ### Complete Project Directory Structure
 
 ```bash
-traccia-bmad-test/
+traccia/
 ├── cmd/
 │   └── api/
 │       └── main.go              # Entry point (initializes Chi, DB, Config)
@@ -290,7 +290,7 @@ The **Feature Folder** structure aligns perfectly with **Domain-Driven Design**.
 Run the Go Blueprint CLI command to scaffold the project, then add the `docker-compose.yml` for Gotenberg.
 
 ```bash
-go-blueprint create --name traccia-bmad-test --framework chi --driver postgres --advanced --feature htmx --feature tailwind --feature docker
+go-blueprint create --name traccia --framework chi --driver postgres --advanced --feature htmx --feature tailwind --feature docker
 ```
 
 **Architecture Status:** READY FOR IMPLEMENTATION ✅

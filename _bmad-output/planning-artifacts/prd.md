@@ -1,7 +1,7 @@
 ---
 stepsCompleted: [step-01-init, step-02-discovery, step-03-success, step-04-journeys, step-05-domain, step-06-innovation, step-07-project-type, step-08-scoping, step-09-functional, step-10-nonfunctional, step-11-polish]
 inputDocuments:
-  - _bmad-output/planning-artifacts/product-brief-traccia-bmad-test-2026-01-20.md
+  - _bmad-output/planning-artifacts/product-brief-traccia-2026-01-20.md
   - _bmad-output/planning-artifacts/research/market-unified-travel-app-research-2026-01-19.md
   - _bmad-output/planning-artifacts/brainstorming.md
 documentCounts:
@@ -17,7 +17,7 @@ classification:
   projectContext: greenfield
 ---
 
-# Product Requirements Document: traccia-bmad-test
+# Product Requirements Document: traccia
 
 **Author:** simo
 **Date:** 2026-01-20
@@ -25,9 +25,9 @@ classification:
 
 ## 1. Executive Summary
 
-**traccia-bmad-test** is a **Constraint-Based Travel Orchestrator** designed to solve "Stitching Fatigue"—the exhaustion caused by manually connecting logistics (TripIt) with discovery (Wanderlog).
+**traccia** is a **Constraint-Based Travel Orchestrator** designed to solve "Stitching Fatigue"—the exhaustion caused by manually connecting logistics (TripIt) with discovery (Wanderlog).
 
-Unlike competitors that focus on *maximizing content* (places to go), traccia-bmad-test optimizes *continuity* (the flow between them). It treats **User Energy** and **Cognitive Load** as finite resources. By fusing intelligent gap-filling algorithms, burnout prevention logic ("Rhythm Guardian"), and military-grade offline redundancies ("Survival Export"), we serve the **"Anxious Planner"** who demands certainty and the **"Pragmatic Maximizer"** who demands efficiency.
+Unlike competitors that focus on *maximizing content* (places to go), traccia optimizes *continuity* (the flow between them). It treats **User Energy** and **Cognitive Load** as finite resources. By fusing intelligent gap-filling algorithms, burnout prevention logic ("Rhythm Guardian"), and military-grade offline redundancies ("Survival Export"), we serve the **"Anxious Planner"** who demands certainty and the **"Pragmatic Maximizer"** who demands efficiency.
 
 **Core Value Proposition:** Move the user from "Optimistic Planning" to "Realistic Execution."
 
@@ -90,7 +90,7 @@ Unlike competitors that focus on *maximizing content* (places to go), traccia-bm
 ### 1. Sarah: The "From Panic to Peace" Journey (Primary User - Reliability Focus)
 **Backstory:** Sarah (34, PM) is organizing a 10-day Japan trip. She fears "The Domino Effect"—one missed train ruining the trip.
 *   **Opening:** Sarah stares at a spreadsheet at 11 PM, unsure if she can make a 7 PM dinner after a 6 PM ticket. Panic sets in.
-*   **Action:** She enters events into traccia-bmad-test. The **Rhythm Guardian** flashes "Yellow Alert": *"Transit risk: Shinjuku is 45 mins away. You have 15 mins buffer."*
+*   **Action:** She enters events into traccia. The **Rhythm Guardian** flashes "Yellow Alert": *"Transit risk: Shinjuku is 45 mins away. You have 15 mins buffer."*
 *   **Relief:** She moves dinner to 8 PM. The timeline turns green. She feels validated.
 *   **Climax:** Two days pre-trip, she hits "Generate Survival Export." A bilingual PDF with "Taxi Cards" appears. She prints it.
 *   **Resolution:** In Tokyo, her phone dies. Her husband uses the printout to show a taxi driver the address. They arrive safely.

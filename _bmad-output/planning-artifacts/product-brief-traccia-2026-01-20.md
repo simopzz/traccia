@@ -5,18 +5,18 @@ inputDocuments:
   - _bmad-output/planning-artifacts/research/market-unified-travel-app-research-2026-01-19.md
 date: 2026-01-20
 author: simo
-project_name: traccia-bmad-test
+project_name: traccia
 ---
 
-# Product Brief: traccia-bmad-test
+# Product Brief: traccia
 
 <!-- Content will be appended sequentially through collaborative workflow steps -->
 
 ## Executive Summary
 
-**traccia-bmad-test** is a **Constraint-Based Travel Orchestrator** designed to solve "Stitching Fatigue"—the exhaustion caused by manually connecting logistics (TripIt) with discovery (Wanderlog).
+**traccia** is a **Constraint-Based Travel Orchestrator** designed to solve "Stitching Fatigue"—the exhaustion caused by manually connecting logistics (TripIt) with discovery (Wanderlog).
 
-While competitors focus on maximizing *content* (places to go), traccia-bmad-test focuses on optimizing *continuity* (the flow between them). It is the first travel tool to treat **User Energy** and **Cognitive Load** as finite resources. By fusing intelligent gap-filling algorithms, burnout prevention logic, and military-grade offline redundancies, we serve the **"Anxious Planner"** who demands certainty and the **"Pragmatic Maximizer"** who demands efficiency.
+While competitors focus on maximizing *content* (places to go), traccia focuses on optimizing *continuity* (the flow between them). It is the first travel tool to treat **User Energy** and **Cognitive Load** as finite resources. By fusing intelligent gap-filling algorithms, burnout prevention logic, and military-grade offline redundancies, we serve the **"Anxious Planner"** who demands certainty and the **"Pragmatic Maximizer"** who demands efficiency.
 
 ---
 
@@ -48,7 +48,7 @@ None of these tools effectively manage the *context* of the trip—the "vibe," t
 
 ### Proposed Solution
 
-**traccia-bmad-test** is not just a planner; it is a **Trip Reliability Engine**. It ingests fragmented plans and structures them into a cohesive, resilient narrative.
+**traccia** is not just a planner; it is a **Trip Reliability Engine**. It ingests fragmented plans and structures them into a cohesive, resilient narrative.
 
 #### 1. The Opportunity Filler (Constraint-Based Discovery)
 Unlike generic "Nearby" filters, this engine functions as a **Smart Concierge for Schedule Gaps**.

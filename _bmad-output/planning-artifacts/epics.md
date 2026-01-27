@@ -6,11 +6,11 @@ inputDocuments:
   - _bmad-output/planning-artifacts/ux-design-specification.md
 ---
 
-# traccia-bmad-test - Epic Breakdown
+# traccia - Epic Breakdown
 
 ## Overview
 
-This document provides the complete epic and story breakdown for traccia-bmad-test, decomposing the requirements from the PRD, UX Design if it exists, and Architecture requirements into implementable stories.
+This document provides the complete epic and story breakdown for traccia, decomposing the requirements from the PRD, UX Design if it exists, and Architecture requirements into implementable stories.
 
 ## Requirements Inventory
 

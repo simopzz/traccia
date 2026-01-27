@@ -2,9 +2,9 @@
 
 ### Project Vision
 
-traccia-bmad-test is a **Constraint-Based Travel Orchestrator** designed to solve "Stitching Fatigue"—the exhaustion caused by manually connecting logistics with discovery.
+traccia is a **Constraint-Based Travel Orchestrator** designed to solve "Stitching Fatigue"—the exhaustion caused by manually connecting logistics with discovery.
 
-While competitors focus on maximizing *content* (places to go), traccia-bmad-test focuses on optimizing *continuity* (the flow between them). It is the first travel tool to treat **User Energy** and **Cognitive Load** as finite resources. By fusing intelligent gap-filling algorithms, burnout prevention logic, and military-grade offline redundancies, it serves the traveler who demands certainty and efficiency.
+While competitors focus on maximizing *content* (places to go), traccia focuses on optimizing *continuity* (the flow between them). It is the first travel tool to treat **User Energy** and **Cognitive Load** as finite resources. By fusing intelligent gap-filling algorithms, burnout prevention logic, and military-grade offline redundancies, it serves the traveler who demands certainty and efficiency.
 
 ### Target Users
 
@@ -28,7 +28,7 @@ While competitors focus on maximizing *content* (places to go), traccia-bmad-tes
 ## Core User Experience
 
 ### Defining Experience
-The heartbeat of traccia-bmad-test is the **"Search -> Time -> Slot"** loop. The user builds their itinerary by searching for a real-world location (leveraging familiar Google Maps patterns), defining a time constraint, and seeing it instantly visualize within their linear day. This "skeleton building" phase must be frictionless to prevent early abandonment.
+The heartbeat of traccia is the **"Search -> Time -> Slot"** loop. The user builds their itinerary by searching for a real-world location (leveraging familiar Google Maps patterns), defining a time constraint, and seeing it instantly visualize within their linear day. This "skeleton building" phase must be frictionless to prevent early abandonment.
 
 ### Platform Strategy
 *   **Primary Context:** Desktop Web. A "Command Center" view for deep work sessions, utilizing screen real estate to show the Timeline and Map simultaneously.
@@ -150,7 +150,7 @@ We will utilize **Tailwind CSS** as the utility-first styling engine, augmented 
 
 ### 2.1 Defining Experience
 The defining interaction is **"The Intent-First Capture."**
-Unlike calendars (which ask "When?"), traccia-bmad-test starts with "Where?" The user searches for a place, and the system handles the temporal logistics. This shifts the mental load from "Scheduling" (hard) to "listing desires" (easy/fun).
+Unlike calendars (which ask "When?"), traccia starts with "Where?" The user searches for a place, and the system handles the temporal logistics. This shifts the mental load from "Scheduling" (hard) to "listing desires" (easy/fun).
 
 ### 2.2 User Mental Model
 *   **Current State:** Users have a "Bucket List" in their head (or Notes app) and a "Schedule" in their calendar. Bridging them is manual work.

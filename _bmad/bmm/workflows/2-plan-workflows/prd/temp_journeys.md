@@ -5,7 +5,7 @@
 **Backstory:** Sarah (34, Project Manager) is organizing a 10-day trip to Japan for her family. She is terrified of "The Domino Effect"—one missed train ruining the whole trip. She has 14 confirmation emails and a messy Google Doc.
 
 *   **Opening Scene (The Anxiety):** It's Tuesday night, 11 PM. Sarah is staring at her spreadsheet. She realizes she has a dinner reservation in Shinjuku at 7 PM but her teamLab Planets ticket ends at 6 PM. "Can I make it across Tokyo in rush hour?" She feels the familiar chest-tightening panic of uncertainty.
-*   **Rising Action (The Intervention):** She opens traccia-bmad-test and manually enters her events.
+*   **Rising Action (The Intervention):** She opens traccia and manually enters her events.
     *   *System Action:* As she enters the teamLab slot, the **Rhythm Guardian** immediately flashes a "Yellow Alert": *"Transit risk: Shinjuku is 45 mins away. You have 15 mins buffer. Recommended: Move dinner to 8 PM."*
     *   *Emotional Shift:* Validation. "Thank god I didn't find this out *on the train*." She moves the dinner. The timeline turns green.
 *   **Climax (The Safety Net):** Two days before the flight. She hits "Generate Survival Export." The system churns for 5 seconds and spits out a bilingual PDF. She sees the "Taxi Card" for her Ryokan in Kyoto—big, bold Japanese text. She prints two copies. One goes in her carry-on, one in her husband's bag. She finally closes her browser tabs.
@@ -34,7 +34,7 @@
 
 ### 3. Alex: The System Monitor (Admin/Dev - Operational Focus)
 
-**Backstory:** Alex is the solo dev/admin running traccia-bmad-test. His nightmare is a Google Maps bill spike or a broken PDF generator leaving users stranded.
+**Backstory:** Alex is the solo dev/admin running traccia. His nightmare is a Google Maps bill spike or a broken PDF generator leaving users stranded.
 
 *   **Opening Scene (The Spike):** Alex gets a Slack alert: "Google Places API Quota at 80%." It's only the 15th of the month.
 *   **Rising Action (The Investigation):** He logs into the Admin Dashboard. He sees a spike in "Opportunity Filler" requests from a specific user cohort (maybe a bot?).

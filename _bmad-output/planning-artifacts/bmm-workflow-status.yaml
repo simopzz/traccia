@@ -38,7 +38,7 @@ workflow_status:
         exec: "{project-root}/_bmad/bmm/workflows/1-analysis/research/workflow.md"
         output: "{planning_artifacts}/research/research-summary.md"
       - id: "product-brief"
-        status: "_bmad-output/planning-artifacts/product-brief-traccia-bmad-test-2026-01-20.md"
+        status: "_bmad-output/planning-artifacts/product-brief-traccia-2026-01-20.md"
         agent: "analyst"
         command: "/bmad:bmm:workflows:create-product-brief"
         exec: "{project-root}/_bmad/bmm/workflows/1-analysis/create-product-brief/workflow.md"

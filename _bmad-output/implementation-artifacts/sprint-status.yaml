@@ -1,8 +1,8 @@
 # generated: 2026-01-26
-# project: traccia-bmad-test
-# project_key: traccia-bmad-test
+# project: traccia
+# project_key: traccia
 # tracking_system: file-system
-# story_location: /home/simopzz/dev/personal/traccia-bmad-test/_bmad-output/implementation-artifacts
+# story_location: /home/simopzz/dev/personal/traccia/_bmad-output/implementation-artifacts
 
 # STATUS DEFINITIONS:
 # ==================
@@ -34,10 +34,10 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-26
-project: traccia-bmad-test
-project_key: traccia-bmad-test
+project: traccia
+project_key: traccia
 tracking_system: file-system
-story_location: /home/simopzz/dev/personal/traccia-bmad-test/_bmad-output/implementation-artifacts
+story_location: /home/simopzz/dev/personal/traccia/_bmad-output/implementation-artifacts
 
 development_status:
   epic-1: backlog

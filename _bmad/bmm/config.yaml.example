@@ -2,7 +2,7 @@
 # Template for team
 # Version: 6.0.0-alpha.23
 
-project_name: traccia-bmad-test
+project_name: traccia
 user_skill_level: intermediate
 planning_artifacts: "{project-root}/_bmad-output/planning-artifacts"
 implementation_artifacts: "{project-root}/_bmad-output/implementation-artifacts"
