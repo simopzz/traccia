@@ -23,6 +23,7 @@
 
 # Go workspace file
 go.work
+tmp/
 
 ### macOS ###
 # General
@@ -97,3 +98,13 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+
+# Project build
+main
+*templ.go
+
+# Tailwind CSS
+cmd/web/assets/css/output.css
+tailwindcss
+
+mise.local.toml
