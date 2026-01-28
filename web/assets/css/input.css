@@ -1,5 +1,1 @@
 @import "tailwindcss";
-
-@source "../../../**/*.templ";
-@source "../../../**/*.go";
-@source "../../../web/assets/js/*.js";
