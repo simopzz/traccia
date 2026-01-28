@@ -102,7 +102,7 @@ go-blueprint create --name traccia \
 -   **Web Assets**: Dedicated `web/` directory for Templ components and static assets.
 
 **Development Experience:**
--   **Docker Compose**: Ready-to-go `compose.yml` for the Postgres database.
+-   **Docker Compose**: Ready-to-go `docker-compose.yml` for the Postgres database.
 -   **HTMX Integration**: `htmx.min.js` included and served correctly.
 
 ---
@@ -231,7 +231,7 @@ traccia/
 │       └── base.templ           # Global HTML Shell
 ├── migrations/                  # SQL Migrations (Postgres)
 ├── tests/                       # Integration/E2E Tests
-├── compose.yml                  # Docker Compose (App + DB + Gotenberg)
+├── docker-compose.yml                  # Docker Compose (App + DB + Gotenberg)
 ├── Dockerfile                   # Go App
 ├── Makefile                     # Build commands
 └── go.mod
