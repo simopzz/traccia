@@ -4,13 +4,14 @@ package server
 import (
 	"net/http"
 
+	"traccia/internal/features/health"
+	"traccia/internal/features/timeline"
+	"traccia/web"
+
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"traccia/internal/features/health"
-	"traccia/internal/features/timeline"
-	"traccia/web"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
@@ -25,7 +26,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 		MaxAge:           300,
 	}))
 
-	r.Get("/", timeline.HelloWorldHandler)
+	timelineService := timeline.NewService(s.db.DB())
+	timelineHandler := timeline.NewHandler(timelineService)
+	timelineHandler.RegisterRoutes(r)
 
 	healthHandler := health.NewHandler(s.db)
 	r.Get("/health", healthHandler.HealthHandler)
