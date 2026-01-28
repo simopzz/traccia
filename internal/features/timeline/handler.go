@@ -1,4 +1,4 @@
-package home
+package timeline
 
 import (
 	"encoding/json"

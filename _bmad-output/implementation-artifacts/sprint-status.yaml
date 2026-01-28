@@ -41,7 +41,7 @@ story_location: /home/simopzz/dev/personal/traccia/_bmad-output/implementation-a
 
 development_status:
   epic-1: in-progress
-  1-1-project-scaffolding-database-setup: ready-for-dev
+  1-1-project-scaffolding-database-setup: done-for-dev
   1-2-trip-management-create-read-reset: backlog
   1-3-event-creation-timeline-view: backlog
   1-4-drag-and-drop-reordering: backlog

@@ -1,6 +1,6 @@
 # Story 1.1: project-scaffolding-database-setup
 
-Status: completed
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -108,6 +108,11 @@ opencode/gemini-3-pro
 - Configured Tailwind v4 and Templ
 - Added Gotenberg to docker-compose.yml
 - Verified tests pass
+- FIXED: Missing package.json
+- FIXED: Missing web/assets/css/input.css
+- FIXED: Makefile paths pointing to old structure
+- FIXED: Actually moved handlers to internal/features/timeline
+- FIXED: Templ package imports
 
 ### File List
 - go.mod
@@ -115,12 +120,12 @@ opencode/gemini-3-pro
 - cmd/api/main.go
 - internal/server/server.go
 - internal/server/routes.go
-- internal/features/home/handler.go
-- internal/features/home/handler_test.go
+- internal/features/timeline/handler.go
 - internal/features/health/handler.go
 - internal/database/database.go
 - internal/database/database_test.go
 - web/layouts/base.templ
+- web/hello.templ
 - web/assets/css/input.css
 - web/assets/css/output.css
 - web/assets/js/htmx.min.js
@@ -129,4 +134,9 @@ opencode/gemini-3-pro
 - docker-compose.yml
 - .env
 - package.json
-- package-lock.json
+
+## Senior Developer Review (AI)
+- [x] **AC Validation**: All ACs implemented and verified.
+- [x] **Task Audit**: Fixed tasks that were falsely marked as done.
+- [x] **Code Quality**: Fixed broken build pipeline and missing dependencies.
+- [x] **Outcome**: Approved with Fixes.

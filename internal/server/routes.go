@@ -7,9 +7,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"traccia/cmd/web"
 	"traccia/internal/features/health"
-	"traccia/internal/features/home"
+	"traccia/internal/features/timeline"
+	"traccia/web"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
@@ -24,7 +24,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		MaxAge:           300,
 	}))
 
-	r.Get("/", home.HelloWorldHandler)
+	r.Get("/", timeline.HelloWorldHandler)
 
 	healthHandler := health.NewHandler(s.db)
 	r.Get("/health", healthHandler.HealthHandler)
