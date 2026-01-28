@@ -85,8 +85,8 @@ traccia/
 ```
 
 ### Testing Requirements
-- Ensure `go test ./...` runs without error.
-- Verify `make run` starts the server on port 8080 (default).
+- **Ensure `go test ./...` runs without error.**
+- **Verify `make run` starts the server on port 8080 (default).**
 
 ### References
 - [Architecture: Technical Stack](_bmad-output/planning-artifacts/architecture.md#starter-template-evaluation)
@@ -113,6 +113,9 @@ opencode/gemini-3-pro
 - FIXED: Makefile paths pointing to old structure
 - FIXED: Actually moved handlers to internal/features/timeline
 - FIXED: Templ package imports
+- FIXED: **Tailwind v4 Configuration** - Updated `input.css` to use `@import "tailwindcss";` and `@source` directives to correctly scan `.templ` files.
+- FIXED: **Package.json Version** - Updated `tailwindcss` to `^4.0.0` to match the binary used in `Makefile`.
+- FIXED: **Asset Paths** - Verified absolute paths in `base.templ`.
 
 ### File List
 - go.mod
@@ -137,6 +140,6 @@ opencode/gemini-3-pro
 
 ## Senior Developer Review (AI)
 - [x] **AC Validation**: All ACs implemented and verified.
-- [x] **Task Audit**: Fixed tasks that were falsely marked as done.
+- [x] **Task Audit**: Fixed tasks that were falsely marked as done (Tailwind pipeline).
 - [x] **Code Quality**: Fixed broken build pipeline and missing dependencies.
-- [x] **Outcome**: Approved with Fixes.
+- [x] **Outcome**: Approved with Fixes (Tailwind v4 support fully integrated).
