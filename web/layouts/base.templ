@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 package layouts
 
 templ Base() {
@@ -14,6 +15,9 @@ templ Base() {
 			<main class="max-w-sm mx-auto p-4">
 				{ children... }
 			</main>
+			<footer class="text-center py-4 text-sm text-gray-500">
+				<a href="https://github.com/simopzz/traccia" target="_blank" rel="noopener noreferrer" class="hover:underline">Source Code</a>
+			</footer>
 		</body>
 	</html>
 }
