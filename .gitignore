@@ -104,7 +104,7 @@ main
 *templ.go
 
 # Tailwind CSS
-cmd/web/assets/css/output.css
+web/assets/css/output.css
 tailwindcss
 
 mise.local.toml
