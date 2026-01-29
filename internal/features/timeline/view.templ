@@ -5,9 +5,9 @@ import (
     "traccia/web/layouts"
 )
 
-templ View(trip *Trip) {
+templ View(trip *Trip, events []Event) {
     @layouts.Base() {
-        <div class="max-w-4xl mx-auto mt-6 p-6">
+        <div class="max-w-6xl mx-auto mt-6 p-6">
             <div class="flex justify-between items-center mb-8 border-b pb-4">
                 <div>
                     <h1 class="text-3xl font-bold text-gray-900">{ trip.Name }</h1>
@@ -31,9 +31,56 @@ templ View(trip *Trip) {
                 </button>
             </div>
 
-            <div class="bg-gray-50 p-8 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 min-h-[300px]">
-                <p class="mb-2">Timeline View</p>
-                <p class="text-xs">Events will be displayed here</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 <!-- Form -->
+                 <div class="md:col-span-1 bg-white p-6 rounded shadow h-fit">
+                     <h2 class="text-xl font-bold mb-4">Add Event</h2>
+                     <form hx-post={ fmt.Sprintf("/trips/%s/events", trip.ID) } hx-target="#event-list" hx-swap="beforeend">
+                         <div class="mb-4">
+                             <label class="block text-gray-700 text-sm font-bold mb-2">Title</label>
+                             <input type="text" name="title" required class="w-full border rounded px-3 py-2" />
+                         </div>
+                         <div class="mb-4">
+                             <label class="block text-gray-700 text-sm font-bold mb-2">Category</label>
+                             <select name="category" class="w-full border rounded px-3 py-2">
+                                 <option value="Activity">Activity</option>
+                                 <option value="Lodging">Lodging</option>
+                                 <option value="Food">Food</option>
+                                 <option value="Transit">Transit</option>
+                                 <option value="Other">Other</option>
+                             </select>
+                         </div>
+                         <div class="mb-4">
+                             <label class="block text-gray-700 text-sm font-bold mb-2">Location</label>
+                             <input type="text" name="location" class="w-full border rounded px-3 py-2" />
+                         </div>
+                          <div class="mb-4">
+                             <label class="block text-gray-700 text-sm font-bold mb-2">Start Time</label>
+                             <input type="datetime-local" name="start_time" required class="w-full border rounded px-3 py-2" />
+                         </div>
+                          <div class="mb-4">
+                             <label class="block text-gray-700 text-sm font-bold mb-2">End Time</label>
+                             <input type="datetime-local" name="end_time" class="w-full border rounded px-3 py-2" />
+                         </div>
+                         
+                         <input type="hidden" name="geo_lat" value="" />
+                         <input type="hidden" name="geo_lng" value="" />
+                         
+                         <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full">Add Event</button>
+                     </form>
+                 </div>
+                 
+                 <!-- Timeline -->
+                 <div class="md:col-span-2">
+                     <div class="bg-gray-100 p-4 rounded min-h-[500px]" id="timeline-container">
+                         <h2 class="text-xl font-bold mb-4">Itinerary</h2>
+                         <div id="event-list" class="space-y-4">
+                             for _, event := range events {
+                                 @EventCard(event)
+                             }
+                         </div>
+                     </div>
+                 </div>
             </div>
         </div>
     }

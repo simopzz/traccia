@@ -1,0 +1,32 @@
+package timeline
+
+import (
+	"fmt"
+	"time"
+)
+
+func calculateHeight(start, end *time.Time) int {
+	if start == nil || end == nil {
+		return 64 // default 1h
+	}
+	duration := end.Sub(*start)
+	hours := duration.Hours()
+	if hours < 0.25 { // min 15m
+		hours = 0.25
+	}
+	return int(hours * 64)
+}
+
+templ EventCard(event Event) {
+	<div class="event-card border p-2 mb-2 rounded shadow bg-white overflow-hidden" 
+         id={ fmt.Sprintf("event-%s", event.ID) }
+         style={ fmt.Sprintf("height: %dpx", calculateHeight(event.StartTime, event.EndTime)) }>
+		<div class="font-bold">{ event.Title }</div>
+		if event.Category != nil {
+			<div class="text-sm text-gray-500">{ *event.Category }</div>
+		}
+		if event.StartTime != nil {
+			<div class="text-xs">{ event.StartTime.Format("15:04") }</div>
+		}
+	</div>
+}
