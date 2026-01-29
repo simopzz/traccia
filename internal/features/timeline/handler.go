@@ -190,7 +190,7 @@ func (h *Handler) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 		endTime = &parsed
 	}
 
-	event, err := h.service.CreateEvent(r.Context(), CreateEventParams{
+	_, err = h.service.CreateEvent(r.Context(), CreateEventParams{
 		TripID:    id,
 		Title:     title,
 		Category:  catPtr,
@@ -201,9 +201,21 @@ func (h *Handler) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 		EndTime:   endTime,
 	})
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to create event: %v", err), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write([]byte(fmt.Sprintf("<div class='text-red-500 mb-4'>Error: %v</div>", err)))
 		return
 	}
 
-	templ.Handler(EventCard(*event)).ServeHTTP(w, r)
+	// Fetch all events to re-render the list sorted
+	events, err := h.service.GetEvents(r.Context(), id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get events: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Return the whole list, not just the card
+	// We need a component for the list wrapper content to swap just the inner HTML of #event-list
+	// But since View defines the list container, let's create a small helper or just loop here if we can't export a component easily.
+	// Better: Create an EventList component in components.templ
+	templ.Handler(EventList(events)).ServeHTTP(w, r)
 }
