@@ -12,6 +12,7 @@
 - **Structure:** `internal/features/` directory for feature-based organization.
 
 ## Rules
+- **Frontend:** MUST use HTMX v2 syntax.
 - **JSON Tags:** MUST be `camelCase`.
 - **Database Tables:** MUST be `snake_case` and `plural`.
 - **Templ Files:** MUST be co-located with handlers.
