@@ -1,0 +1,40 @@
+package timeline
+
+import (
+    "fmt"
+    "traccia/web/layouts"
+)
+
+templ View(trip *Trip) {
+    @layouts.Base() {
+        <div class="max-w-4xl mx-auto mt-6 p-6">
+            <div class="flex justify-between items-center mb-8 border-b pb-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">{ trip.Name }</h1>
+                    <p class="text-lg text-gray-600">{ trip.Destination }</p>
+                    if trip.StartDate != nil {
+                        <p class="text-sm text-gray-500">
+                            { trip.StartDate.Format("Jan 02, 2006") }
+                            if trip.EndDate != nil {
+                                - { trip.EndDate.Format("Jan 02, 2006") }
+                            }
+                        </p>
+                    }
+                </div>
+                <button
+                    hx-post={ fmt.Sprintf("/trips/%s/reset", trip.ID) }
+                    hx-confirm="Are you sure you want to clear all events?"
+                    hx-target="body"
+                    class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm transition"
+                >
+                    Clear Trip
+                </button>
+            </div>
+
+            <div class="bg-gray-50 p-8 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 min-h-[300px]">
+                <p class="mb-2">Timeline View</p>
+                <p class="text-xs">Events will be displayed here</p>
+            </div>
+        </div>
+    }
+}
