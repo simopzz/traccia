@@ -61,6 +61,17 @@ func mustStartPostgresContainer(t *testing.T) (*sql.DB, func()) {
 		t.Fatalf("failed to apply migration: %v", err)
 	}
 
+	// Run migration 000002
+	migrationSQL2, err := os.ReadFile("/home/simopzz/dev/personal/traccia/migrations/000002_add_event_details.up.sql")
+	if err != nil {
+		t.Fatalf("failed to read migration file 000002: %v", err)
+	}
+
+	_, err = db.ExecContext(ctx, string(migrationSQL2))
+	if err != nil {
+		t.Fatalf("failed to apply migration 000002: %v", err)
+	}
+
 	return db, func() {
 		if err := postgresContainer.Terminate(ctx); err != nil {
 			t.Fatalf("failed to terminate container: %v", err)
@@ -163,5 +174,113 @@ func TestResetTrip(t *testing.T) {
 	}
 	if count != 0 {
 		t.Errorf("expected 0 events, got %d", count)
+	}
+}
+
+func TestCreateEvent(t *testing.T) {
+	db, teardown := mustStartPostgresContainer(t)
+	defer teardown()
+
+	svc := timeline.NewService(db)
+	ctx := context.Background()
+
+	// Create a trip first
+	trip, err := svc.CreateTrip(ctx, timeline.CreateTripParams{Name: "Trip 1", Destination: "Dest"})
+	if err != nil {
+		t.Fatalf("failed to create trip: %v", err)
+	}
+
+	start := time.Now().UTC()
+	end := start.Add(1 * time.Hour)
+	cat := "Activity"
+	loc := "Museum St"
+	lat := 10.0
+	lng := 20.0
+
+	params := timeline.CreateEventParams{
+		TripID:    trip.ID,
+		Title:     "Visit Museum",
+		Category:  &cat,
+		Location:  &loc,
+		GeoLat:    &lat,
+		GeoLng:    &lng,
+		StartTime: &start,
+		EndTime:   &end,
+	}
+
+	event, err := svc.CreateEvent(ctx, params)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if event.Title != params.Title {
+		t.Errorf("expected title %s, got %s", params.Title, event.Title)
+	}
+	if event.Category == nil || *event.Category != cat {
+		t.Errorf("expected category %s, got %v", cat, event.Category)
+	}
+	if event.GeoLat == nil || *event.GeoLat != lat {
+		t.Errorf("expected lat %f, got %v", lat, event.GeoLat)
+	}
+}
+
+func TestCreateEventValidation(t *testing.T) {
+	db, teardown := mustStartPostgresContainer(t)
+	defer teardown()
+
+	svc := timeline.NewService(db)
+	ctx := context.Background()
+
+	trip, err := svc.CreateTrip(ctx, timeline.CreateTripParams{Name: "Trip 1", Destination: "Dest"})
+	if err != nil {
+		t.Fatalf("failed to create trip: %v", err)
+	}
+
+	start := time.Now().UTC()
+	end := start.Add(-1 * time.Hour) // End before Start
+
+	params := timeline.CreateEventParams{
+		TripID:    trip.ID,
+		Title:     "Bad Event",
+		StartTime: &start,
+		EndTime:   &end,
+	}
+
+	_, err = svc.CreateEvent(ctx, params)
+	if err == nil {
+		t.Error("expected error for EndTime < StartTime, got nil")
+	}
+}
+
+func TestGetEvents(t *testing.T) {
+	db, teardown := mustStartPostgresContainer(t)
+	defer teardown()
+
+	svc := timeline.NewService(db)
+	ctx := context.Background()
+
+	trip, err := svc.CreateTrip(ctx, timeline.CreateTripParams{Name: "Trip 1", Destination: "Dest"})
+	if err != nil {
+		t.Fatalf("failed to create trip: %v", err)
+	}
+
+	params := timeline.CreateEventParams{
+		TripID: trip.ID,
+		Title:  "Event 1",
+	}
+	_, err = svc.CreateEvent(ctx, params)
+	if err != nil {
+		t.Fatalf("failed to create event: %v", err)
+	}
+
+	events, err := svc.GetEvents(ctx, trip.ID)
+	if err != nil {
+		t.Fatalf("failed to get events: %v", err)
+	}
+	if len(events) != 1 {
+		t.Errorf("expected 1 event, got %d", len(events))
+	}
+	if events[0].Title != "Event 1" {
+		t.Errorf("expected title 'Event 1', got %s", events[0].Title)
 	}
 }

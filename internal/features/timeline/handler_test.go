@@ -66,3 +66,73 @@ func TestHandleResetTrip(t *testing.T) {
 		t.Errorf("expected status 303, got %d", w.Code)
 	}
 }
+
+func TestHandleCreateEvent(t *testing.T) {
+	db, teardown := mustStartPostgresContainer(t)
+	defer teardown()
+
+	svc := timeline.NewService(db)
+	h := timeline.NewHandler(svc)
+	r := chi.NewRouter()
+	h.RegisterRoutes(r)
+
+	// Create trip
+	trip, _ := svc.CreateTrip(context.Background(), timeline.CreateTripParams{Name: "Trip", Destination: "Dest"})
+
+	form := url.Values{}
+	form.Add("title", "My Event")
+	form.Add("location", "Somewhere")
+	form.Add("category", "Food")
+	form.Add("geo_lat", "1.23")
+	form.Add("geo_lng", "4.56")
+	form.Add("start_time", "2026-01-01T10:00")
+	form.Add("end_time", "2026-01-01T12:00")
+
+	url := "/trips/" + trip.ID.String() + "/events"
+	req := httptest.NewRequest("POST", url, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
+	// Now we expect the full list (or at least the new event in the list)
+	if !strings.Contains(w.Body.String(), "My Event") {
+		t.Errorf("expected body to contain 'My Event', got %s", w.Body.String())
+	}
+}
+
+func TestHandleCreateEventValidationFail(t *testing.T) {
+	db, teardown := mustStartPostgresContainer(t)
+	defer teardown()
+
+	svc := timeline.NewService(db)
+	h := timeline.NewHandler(svc)
+	r := chi.NewRouter()
+	h.RegisterRoutes(r)
+
+	trip, _ := svc.CreateTrip(context.Background(), timeline.CreateTripParams{Name: "Trip", Destination: "Dest"})
+
+	// Start time > End time
+	form := url.Values{}
+	form.Add("title", "Bad Event")
+	form.Add("start_time", "2026-01-01T12:00")
+	form.Add("end_time", "2026-01-01T10:00")
+
+	url := "/trips/" + trip.ID.String() + "/events"
+	req := httptest.NewRequest("POST", url, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected status 422, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "Error") {
+		t.Errorf("expected error message in body, got %s", w.Body.String())
+	}
+}
