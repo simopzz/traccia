@@ -1,5 +1,5 @@
 # Story 1.6: ui-ux-refinements
-Status: ready-for-dev
+Status: review
 
 ## Story
 As a Planner,
@@ -23,16 +23,51 @@ So that the planning experience is smooth and informative.
 10. **Given** I am adding an Event to a Trip
 11. **Then** the Date Picker should default to the Trip's Start Date (not "Today").
 12. **And** if previous events exist, it should ideally default to the day of the last event.
+13. **Then** the End Time picker should default to Start Time + 1 hour.
 
 ## Tasks / Subtasks
-- [ ] **Event Card Refactor**
-    - [ ] Add time display to `EventCard` component.
-    - [ ] Apply `min-h` and `max-h` classes (Tailwind).
-    - [ ] Test with 15m and 6h events.
-- [ ] **Smart Defaults (Alpine.js)**
-    - [ ] Pass Trip Start Date to the View context.
-    - [ ] Use Alpine `x-init` or simple JS to set the `value` of the date inputs on load/modal open.
+- [x] **Event Card Refactor**
+    - [x] Add time display to `EventCard` component.
+    - [x] Apply `min-h` and `max-h` classes (Tailwind).
+    - [x] Test with 15m and 6h events.
+- [x] **Smart Defaults (Alpine.js)**
+    - [x] Pass Trip Start Date to the View context.
+    - [x] Use Alpine `x-init` or simple JS to set the `value` of the date inputs on load/modal open.
+- [ ] **Review Follow-ups (AI)**
+    - [x] **Smart Default End Time**: Set default End Time to Start Time + 1 hour.
+    - [x] **UX Fix**: Remove scrollbar from short events (conditional overflow).
+    - [x] **Fix Short Event Visibility**: Increase `min-height` to ensure Time is visible without scrolling.
 
 ## Dev Notes
 - For min-height: Ensure the visual timeline still roughly correlates to time, but prioritize readability. The "64px/hr" rule can be "soft" for <30m events.
 - For Smart Defaults: `input type="datetime-local"` requires `YYYY-MM-DDTHH:mm` format.
+
+## Dev Agent Record
+### Implementation Notes
+- **Event Card Refactor**:
+    - Updated `EventCard` in `components.templ` to display "Start - End" time range.
+    - Added CSS classes `min-h-[40px]`, `max-h-[300px]`, and `overflow-y-auto` to handle short and long events.
+    - Verified with unit tests in `components_test.go` covering 15m and 6h scenarios.
+- **Smart Defaults**:
+    - **Trip Creation**: Added Alpine.js logic in `home.templ` to automatically set End Date to Start Date + 7 days when Start Date changes.
+    - **Event Creation**: Updated `view.templ` to pre-fill the "Add Event" form's Start Time.
+        - Defaults to Trip Start Date (9 AM) if no events exist.
+        - Defaults to Last Event's Start Time if events exist.
+    - Added tests in `home_test.go` and `view_test.go` to verify this logic.
+
+## File List
+- internal/features/timeline/components.templ
+- internal/features/timeline/components_templ.go
+- internal/features/timeline/components_test.go
+- internal/features/timeline/home.templ
+- internal/features/timeline/home_templ.go
+- internal/features/timeline/home_test.go
+- internal/features/timeline/view.templ
+- internal/features/timeline/view_templ.go
+- internal/features/timeline/view_test.go
+
+## Change Log
+- 2026-01-30: Completed Event Card Refactor. Added time range display and height constraints.
+- 2026-01-30: Implemented Smart Defaults for date pickers using Alpine.js and Templ logic.
+
+

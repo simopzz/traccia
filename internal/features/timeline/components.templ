@@ -44,11 +44,16 @@ templ EventList(tripID uuid.UUID, events []Event) {
 }
 
 templ EventCard(event Event) {
-	<div class={ "event-card border px-2 py-1 mb-2 rounded shadow bg-white overflow-hidden relative group", 
+    {{
+        height := calculateHeight(event.StartTime, event.EndTime)
+    }}
+	<div class={ "event-card border px-2 py-1 mb-2 rounded shadow bg-white min-h-[60px] max-h-[300px] relative group",
+	             templ.KV("overflow-y-auto", height > 300),
+	             templ.KV("overflow-hidden", height <= 300),
                  templ.KV("border-blue-500 border-2", event.IsPinned),
                  templ.KV("border-gray-200", !event.IsPinned) }
          id={ fmt.Sprintf("event-%s", event.ID) }
-         style={ fmt.Sprintf("height: %dpx", calculateHeight(event.StartTime, event.EndTime)) }>
+         style={ fmt.Sprintf("height: %dpx", height) }>
 		<input type="hidden" name="event_id" value={ event.ID.String() } />
 		<div class="flex justify-between items-start">
 			<div class="font-bold text-sm truncate pr-6">{ event.Title }</div>
@@ -83,7 +88,12 @@ templ EventCard(event Event) {
 			<div class="text-xs text-gray-500 truncate">{ *event.Category }</div>
 		}
 		if event.StartTime != nil {
-			<div class="text-[10px] text-gray-400">{ event.StartTime.Format("15:04") }</div>
+			<div class="text-[10px] text-gray-400">
+				{ event.StartTime.Format("15:04") }
+				if event.EndTime != nil {
+					- { event.EndTime.Format("15:04") }
+				}
+			</div>
 		}
 	</div>
 }
