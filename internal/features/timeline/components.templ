@@ -3,6 +3,8 @@ package timeline
 import (
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func calculateHeight(start, end *time.Time) int {
@@ -17,17 +19,41 @@ func calculateHeight(start, end *time.Time) int {
 	return int(hours * 64)
 }
 
-templ EventList(events []Event) {
-	for _, event := range events {
-		@EventCard(event)
-	}
+templ EventList(tripID uuid.UUID, events []Event) {
+	<form id="event-list" 
+          class="space-y-4"
+          hx-post={ fmt.Sprintf("/trips/%s/events/reorder", tripID) }
+          hx-trigger="end"
+          hx-target="#event-list"
+          hx-swap="outerHTML"
+          x-data="{
+              init() {
+                  this.sortable = new Sortable(this.$el, {
+                      handle: '.drag-handle',
+                      animation: 150,
+                      onEnd: function (evt) {
+                          evt.to.dispatchEvent(new Event('end'));
+                      }
+                  })
+              }
+          }">
+		for _, event := range events {
+			@EventCard(event)
+		}
+	</form>
 }
 
 templ EventCard(event Event) {
 	<div class="event-card border px-2 py-1 mb-2 rounded shadow bg-white overflow-hidden" 
          id={ fmt.Sprintf("event-%s", event.ID) }
          style={ fmt.Sprintf("height: %dpx", calculateHeight(event.StartTime, event.EndTime)) }>
-		<div class="font-bold text-sm truncate">{ event.Title }</div>
+		<input type="hidden" name="event_id" value={ event.ID.String() } />
+		<div class="flex justify-between items-start">
+			<div class="font-bold text-sm truncate">{ event.Title }</div>
+			<div class="drag-handle cursor-move text-gray-400 hover:text-gray-600 pl-1 select-none">
+				<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+			</div>
+		</div>
 		if event.Category != nil {
 			<div class="text-xs text-gray-500 truncate">{ *event.Category }</div>
 		}

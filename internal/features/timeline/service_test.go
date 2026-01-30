@@ -284,3 +284,138 @@ func TestGetEvents(t *testing.T) {
 		t.Errorf("expected title 'Event 1', got %s", events[0].Title)
 	}
 }
+
+func TestReorderEvents_EdgeCases(t *testing.T) {
+	db, teardown := mustStartPostgresContainer(t)
+	defer teardown()
+
+	svc := timeline.NewService(db)
+	ctx := context.Background()
+
+	trip, err := svc.CreateTrip(ctx, timeline.CreateTripParams{Name: "Edge Trip", Destination: "Edges"})
+	if err != nil {
+		t.Fatalf("failed to create trip: %v", err)
+	}
+
+	// Helper to create event
+	createEvent := func(title string) *timeline.Event {
+		// Create event with no times (nil)
+		e, err := svc.CreateEvent(ctx, timeline.CreateEventParams{
+			TripID: trip.ID,
+			Title:  title,
+		})
+		if err != nil {
+			t.Fatalf("failed to create event %s: %v", title, err)
+		}
+		return e
+	}
+
+	evtA := createEvent("Event A")
+	evtB := createEvent("Event B")
+
+	// 1. Test Duplicate IDs
+	_, err = svc.ReorderEvents(ctx, trip.ID, []uuid.UUID{evtA.ID, evtA.ID})
+	if err == nil {
+		t.Error("expected error for duplicate IDs, got nil")
+	}
+
+	// 2. Test Invalid ID (Random UUID)
+	_, err = svc.ReorderEvents(ctx, trip.ID, []uuid.UUID{evtA.ID, uuid.New()})
+	if err == nil {
+		t.Error("expected error for invalid ID, got nil")
+	}
+
+	// 3. Test Mismatch Count
+	_, err = svc.ReorderEvents(ctx, trip.ID, []uuid.UUID{evtA.ID})
+	if err == nil {
+		t.Error("expected error for count mismatch, got nil")
+	}
+
+	// 4. Test Nil Start Time Fallback
+	// Both events have nil start time. Reorder should set them based on current time.
+	reordered, err := svc.ReorderEvents(ctx, trip.ID, []uuid.UUID{evtA.ID, evtB.ID})
+	if err != nil {
+		t.Fatalf("unexpected error reordering nil times: %v", err)
+	}
+
+	if reordered[0].StartTime == nil {
+		t.Error("expected start time to be set after reorder")
+	}
+	// Verify duration is DefaultEventDuration (1 hour)
+	duration := reordered[0].EndTime.Sub(*reordered[0].StartTime)
+	if duration != timeline.DefaultEventDuration {
+		t.Errorf("expected default duration %v, got %v", timeline.DefaultEventDuration, duration)
+	}
+}
+
+func TestReorderEvents(t *testing.T) {
+	db, teardown := mustStartPostgresContainer(t)
+	defer teardown()
+
+	svc := timeline.NewService(db)
+	ctx := context.Background()
+
+	trip, err := svc.CreateTrip(ctx, timeline.CreateTripParams{Name: "Trip 1", Destination: "Dest"})
+	if err != nil {
+		t.Fatalf("failed to create trip: %v", err)
+	}
+
+	// Helper to create event
+	createEvent := func(title string, start time.Time) *timeline.Event {
+		end := start.Add(1 * time.Hour)
+		e, err := svc.CreateEvent(ctx, timeline.CreateEventParams{
+			TripID:    trip.ID,
+			Title:     title,
+			StartTime: &start,
+			EndTime:   &end,
+		})
+		if err != nil {
+			t.Fatalf("failed to create event %s: %v", title, err)
+		}
+		return e
+	}
+
+	// 10:00, 11:00, 12:00
+	baseTime := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
+	evtA := createEvent("Event A", baseTime)
+	evtB := createEvent("Event B", baseTime.Add(1*time.Hour))
+	evtC := createEvent("Event C", baseTime.Add(2*time.Hour))
+
+	// Reorder: C, A, B
+	newOrder := []uuid.UUID{evtC.ID, evtA.ID, evtB.ID}
+
+	events, err := svc.ReorderEvents(ctx, trip.ID, newOrder)
+	if err != nil {
+		t.Fatalf("ReorderEvents failed: %v", err)
+	}
+
+	if len(events) != 3 {
+		t.Errorf("expected 3 events, got %d", len(events))
+	}
+
+	// Index 0: C -> Start 10:00
+	if events[0].ID != evtC.ID {
+		t.Errorf("expected first event to be C")
+	}
+	if !events[0].StartTime.Equal(baseTime) {
+		t.Errorf("expected C start time %v, got %v", baseTime, events[0].StartTime)
+	}
+
+	// Index 1: A -> Start 11:00
+	expectedAStart := baseTime.Add(1 * time.Hour)
+	if events[1].ID != evtA.ID {
+		t.Errorf("expected second event to be A")
+	}
+	if !events[1].StartTime.Equal(expectedAStart) {
+		t.Errorf("expected A start time %v, got %v", expectedAStart, events[1].StartTime)
+	}
+
+	// Index 2: B -> Start 12:00
+	expectedBStart := baseTime.Add(2 * time.Hour)
+	if events[2].ID != evtB.ID {
+		t.Errorf("expected third event to be B")
+	}
+	if !events[2].StartTime.Equal(expectedBStart) {
+		t.Errorf("expected B start time %v, got %v", expectedBStart, events[2].StartTime)
+	}
+}
