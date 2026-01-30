@@ -26,6 +26,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/trips/{id}/reset", h.handleResetTrip)
 	r.Post("/trips/{id}/events", h.handleCreateEvent)
 	r.Post("/trips/{id}/events/reorder", h.handleReorderEvents)
+	r.Post("/events/{id}/toggle-pin", h.handleTogglePin)
 }
 
 func (h *Handler) handleHome(w http.ResponseWriter, r *http.Request) {
@@ -254,4 +255,22 @@ func (h *Handler) handleReorderEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	templ.Handler(EventList(tripID, events)).ServeHTTP(w, r)
+}
+
+func (h *Handler) handleTogglePin(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid event ID", http.StatusBadRequest)
+		return
+	}
+
+	event, err := h.service.TogglePin(r.Context(), id)
+	if err != nil {
+		fmt.Printf("TogglePin error: %v\n", err)
+		http.Error(w, "Failed to toggle pin", http.StatusInternalServerError)
+		return
+	}
+
+	templ.Handler(EventCard(*event)).ServeHTTP(w, r)
 }

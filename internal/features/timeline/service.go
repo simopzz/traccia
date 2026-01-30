@@ -20,6 +20,7 @@ type Service interface {
 	CreateEvent(ctx context.Context, params CreateEventParams) (*Event, error)
 	GetEvents(ctx context.Context, tripID uuid.UUID) ([]Event, error)
 	ReorderEvents(ctx context.Context, tripID uuid.UUID, eventIDs []uuid.UUID) ([]Event, error)
+	TogglePin(ctx context.Context, id uuid.UUID) (*Event, error)
 }
 
 type service struct {
@@ -131,7 +132,7 @@ func (s *service) CreateEvent(ctx context.Context, params CreateEventParams) (*E
 	query := `
 		INSERT INTO events (trip_id, title, location, category, geo_lat, geo_lng, start_time, end_time)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, trip_id, title, location, category, geo_lat, geo_lng, start_time, end_time, created_at, updated_at
+		RETURNING id, trip_id, title, location, category, geo_lat, geo_lng, start_time, end_time, is_pinned, created_at, updated_at
 	`
 	row := s.db.QueryRowContext(ctx, query,
 		params.TripID,
@@ -155,6 +156,7 @@ func (s *service) CreateEvent(ctx context.Context, params CreateEventParams) (*E
 		&event.GeoLng,
 		&event.StartTime,
 		&event.EndTime,
+		&event.IsPinned,
 		&event.CreatedAt,
 		&event.UpdatedAt,
 	)
@@ -167,7 +169,7 @@ func (s *service) CreateEvent(ctx context.Context, params CreateEventParams) (*E
 
 func (s *service) GetEvents(ctx context.Context, tripID uuid.UUID) ([]Event, error) {
 	query := `
-		SELECT id, trip_id, title, location, category, geo_lat, geo_lng, start_time, end_time, created_at, updated_at
+		SELECT id, trip_id, title, location, category, geo_lat, geo_lng, start_time, end_time, is_pinned, created_at, updated_at
 		FROM events
 		WHERE trip_id = $1
 		ORDER BY start_time ASC
@@ -182,7 +184,7 @@ func (s *service) GetEvents(ctx context.Context, tripID uuid.UUID) ([]Event, err
 	for rows.Next() {
 		var e Event
 		if err := rows.Scan(
-			&e.ID, &e.TripID, &e.Title, &e.Location, &e.Category, &e.GeoLat, &e.GeoLng, &e.StartTime, &e.EndTime, &e.CreatedAt, &e.UpdatedAt,
+			&e.ID, &e.TripID, &e.Title, &e.Location, &e.Category, &e.GeoLat, &e.GeoLng, &e.StartTime, &e.EndTime, &e.IsPinned, &e.CreatedAt, &e.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
@@ -201,7 +203,7 @@ func (s *service) ReorderEvents(ctx context.Context, tripID uuid.UUID, eventIDs 
 
 	// Fetch all events for the trip with locking to prevent race conditions
 	query := `
-		SELECT id, trip_id, title, location, category, geo_lat, geo_lng, start_time, end_time, created_at, updated_at
+		SELECT id, trip_id, title, location, category, geo_lat, geo_lng, start_time, end_time, is_pinned, created_at, updated_at
 		FROM events
 		WHERE trip_id = $1
 		ORDER BY start_time ASC
@@ -217,7 +219,7 @@ func (s *service) ReorderEvents(ctx context.Context, tripID uuid.UUID, eventIDs 
 	for rows.Next() {
 		var e Event
 		if err := rows.Scan(
-			&e.ID, &e.TripID, &e.Title, &e.Location, &e.Category, &e.GeoLat, &e.GeoLng, &e.StartTime, &e.EndTime, &e.CreatedAt, &e.UpdatedAt,
+			&e.ID, &e.TripID, &e.Title, &e.Location, &e.Category, &e.GeoLat, &e.GeoLng, &e.StartTime, &e.EndTime, &e.IsPinned, &e.CreatedAt, &e.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
@@ -277,7 +279,13 @@ func (s *service) ReorderEvents(ctx context.Context, tripID uuid.UUID, eventIDs 
 		}
 
 		// Update Times
-		newStart := currentTime
+		var newStart time.Time
+		if evt.IsPinned && evt.StartTime != nil {
+			newStart = *evt.StartTime
+		} else {
+			newStart = currentTime
+		}
+
 		newEnd := newStart.Add(duration)
 
 		// Create new pointers for time values
@@ -304,4 +312,37 @@ func (s *service) ReorderEvents(ctx context.Context, tripID uuid.UUID, eventIDs 
 	}
 
 	return reorderedEvents, nil
+}
+
+func (s *service) TogglePin(ctx context.Context, id uuid.UUID) (*Event, error) {
+	query := `
+		UPDATE events 
+		SET is_pinned = NOT is_pinned, updated_at = NOW() 
+		WHERE id = $1 
+		RETURNING id, trip_id, title, location, category, geo_lat, geo_lng, start_time, end_time, is_pinned, created_at, updated_at
+	`
+
+	var event Event
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&event.ID,
+		&event.TripID,
+		&event.Title,
+		&event.Location,
+		&event.Category,
+		&event.GeoLat,
+		&event.GeoLng,
+		&event.StartTime,
+		&event.EndTime,
+		&event.IsPinned,
+		&event.CreatedAt,
+		&event.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("event not found")
+		}
+		return nil, fmt.Errorf("failed to toggle pin: %w", err)
+	}
+
+	return &event, nil
 }

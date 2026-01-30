@@ -26,6 +26,7 @@ type Event struct {
 	GeoLng    *float64   `json:"geoLng"`
 	StartTime *time.Time `json:"startTime"`
 	EndTime   *time.Time `json:"endTime"`
+	IsPinned  bool       `json:"isPinned"`
 	CreatedAt time.Time  `json:"createdAt"`
 	UpdatedAt time.Time  `json:"updatedAt"`
 }

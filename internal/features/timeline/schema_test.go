@@ -68,6 +68,17 @@ func startPostgresForSchemaTest(t *testing.T) (*sql.DB, func()) {
 		t.Fatalf("failed to apply migration 000002: %v", err)
 	}
 
+	// Run migration 000003
+	migrationSQL3, err := os.ReadFile("../../../migrations/000003_add_is_pinned_to_events.up.sql")
+	if err != nil {
+		t.Fatalf("failed to read migration file 000003: %v", err)
+	}
+
+	_, err = db.ExecContext(ctx, string(migrationSQL3))
+	if err != nil {
+		t.Fatalf("failed to apply migration 000003: %v", err)
+	}
+
 	return db, func() {
 		if err := postgresContainer.Terminate(ctx); err != nil {
 			t.Fatalf("failed to terminate container: %v", err)
@@ -87,7 +98,7 @@ func TestSchemaEventsColumns(t *testing.T) {
 	query := `
         SELECT column_name 
         FROM information_schema.columns 
-        WHERE table_name = 'events' AND column_name IN ('category', 'geo_lat', 'geo_lng');
+        WHERE table_name = 'events' AND column_name IN ('category', 'geo_lat', 'geo_lng', 'is_pinned');
     `
 	rows, err := db.Query(query)
 	if err != nil {
@@ -104,7 +115,7 @@ func TestSchemaEventsColumns(t *testing.T) {
 		found[name] = true
 	}
 
-	expected := []string{"category", "geo_lat", "geo_lng"}
+	expected := []string{"category", "geo_lat", "geo_lng", "is_pinned"}
 	for _, col := range expected {
 		if !found[col] {
 			t.Errorf("Column %s missing in events table", col)
