@@ -72,6 +72,17 @@ func mustStartPostgresContainer(t *testing.T) (*sql.DB, func()) {
 		t.Fatalf("failed to apply migration 000002: %v", err)
 	}
 
+	// Run migration 000003
+	migrationSQL3, err := os.ReadFile("/home/simopzz/dev/personal/traccia/migrations/000003_add_is_pinned_to_events.up.sql")
+	if err != nil {
+		t.Fatalf("failed to read migration file 000003: %v", err)
+	}
+
+	_, err = db.ExecContext(ctx, string(migrationSQL3))
+	if err != nil {
+		t.Fatalf("failed to apply migration 000003: %v", err)
+	}
+
 	return db, func() {
 		if err := postgresContainer.Terminate(ctx); err != nil {
 			t.Fatalf("failed to terminate container: %v", err)
@@ -417,5 +428,121 @@ func TestReorderEvents(t *testing.T) {
 	}
 	if !events[2].StartTime.Equal(expectedBStart) {
 		t.Errorf("expected B start time %v, got %v", expectedBStart, events[2].StartTime)
+	}
+}
+
+func TestReorderEvents_Pinned(t *testing.T) {
+	db, teardown := mustStartPostgresContainer(t)
+	defer teardown()
+
+	svc := timeline.NewService(db)
+	ctx := context.Background()
+
+	trip, err := svc.CreateTrip(ctx, timeline.CreateTripParams{Name: "Pinned Trip", Destination: "Pinned Dest"})
+	if err != nil {
+		t.Fatalf("failed to create trip: %v", err)
+	}
+
+	// Helper to create event
+	createEvent := func(title string, start time.Time) *timeline.Event {
+		end := start.Add(1 * time.Hour)
+		e, err := svc.CreateEvent(ctx, timeline.CreateEventParams{
+			TripID:    trip.ID,
+			Title:     title,
+			StartTime: &start,
+			EndTime:   &end,
+		})
+		if err != nil {
+			t.Fatalf("failed to create event %s: %v", title, err)
+		}
+		return e
+	}
+
+	// A: 10:00 - 11:00
+	baseTime := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
+	evtA := createEvent("Event A", baseTime)
+
+	// B: 11:30 - 12:30 (Gap of 30 mins)
+	// We want to Pin B so it doesn't snap to 11:00
+	evtB := createEvent("Event B", baseTime.Add(90*time.Minute))
+
+	// Manually pin B
+	_, err = db.ExecContext(ctx, "UPDATE events SET is_pinned = true WHERE id = $1", evtB.ID)
+	if err != nil {
+		t.Fatalf("failed to pin event B: %v", err)
+	}
+
+	// Reorder [A, B]
+	// Logic should be:
+	// A starts at 10:00 (Anchor). Ends 11:00.
+	// B is Pinned. Should Stay at 11:30.
+	// If unpinned, B would move to 11:00.
+	newOrder := []uuid.UUID{evtA.ID, evtB.ID}
+
+	events, err := svc.ReorderEvents(ctx, trip.ID, newOrder)
+	if err != nil {
+		t.Fatalf("ReorderEvents failed: %v", err)
+	}
+
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events")
+	}
+
+	// Check A
+	if !events[0].StartTime.Equal(baseTime) {
+		t.Errorf("A moved? Expected %v, got %v", baseTime, events[0].StartTime)
+	}
+
+	// Check B
+	expectedBStart := baseTime.Add(90 * time.Minute) // 11:30
+	if !events[1].StartTime.Equal(expectedBStart) {
+		t.Errorf("B moved despite being pinned! Expected %v, got %v", expectedBStart, events[1].StartTime)
+	}
+}
+
+func TestTogglePin(t *testing.T) {
+	db, teardown := mustStartPostgresContainer(t)
+	defer teardown()
+
+	svc := timeline.NewService(db)
+	ctx := context.Background()
+
+	trip, err := svc.CreateTrip(ctx, timeline.CreateTripParams{Name: "Pin Trip", Destination: "Dest"})
+	if err != nil {
+		t.Fatalf("failed to create trip: %v", err)
+	}
+
+	start := time.Now().UTC()
+	end := start.Add(1 * time.Hour)
+	event, err := svc.CreateEvent(ctx, timeline.CreateEventParams{
+		TripID:    trip.ID,
+		Title:     "Pin Event",
+		StartTime: &start,
+		EndTime:   &end,
+	})
+	if err != nil {
+		t.Fatalf("failed to create event: %v", err)
+	}
+
+	if event.IsPinned {
+		t.Error("expected event to be unpinned initially")
+	}
+
+	// Toggle Pin -> ON
+	updatedEvent, err := svc.TogglePin(ctx, event.ID)
+	if err != nil {
+		t.Fatalf("failed to toggle pin: %v", err)
+	}
+	if !updatedEvent.IsPinned {
+		t.Error("expected event to be pinned")
+	}
+
+	// Toggle Pin -> OFF
+	updatedEvent2, err := svc.TogglePin(ctx, event.ID)
+	if err != nil {
+		t.Fatalf("failed to toggle pin: %v", err)
+	}
+	if updatedEvent2.IsPinned {
+		t.Error("expected event to be unpinned")
 	}
 }

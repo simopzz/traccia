@@ -44,14 +44,33 @@ templ EventList(tripID uuid.UUID, events []Event) {
 }
 
 templ EventCard(event Event) {
-	<div class="event-card border px-2 py-1 mb-2 rounded shadow bg-white overflow-hidden" 
+	<div class={ "event-card border px-2 py-1 mb-2 rounded shadow bg-white overflow-hidden relative group", 
+                 templ.KV("border-blue-500 border-2", event.IsPinned),
+                 templ.KV("border-gray-200", !event.IsPinned) }
          id={ fmt.Sprintf("event-%s", event.ID) }
          style={ fmt.Sprintf("height: %dpx", calculateHeight(event.StartTime, event.EndTime)) }>
 		<input type="hidden" name="event_id" value={ event.ID.String() } />
 		<div class="flex justify-between items-start">
-			<div class="font-bold text-sm truncate">{ event.Title }</div>
-			<div class="drag-handle cursor-move text-gray-400 hover:text-gray-600 pl-1 select-none">
-				<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+			<div class="font-bold text-sm truncate pr-6">{ event.Title }</div>
+			<div class="flex items-center gap-1 absolute top-1 right-1">
+				<button type="button" 
+                        class={ "p-0.5 transition-opacity", 
+                                templ.KV("text-gray-400 hover:text-blue-500 opacity-0 group-hover:opacity-100", !event.IsPinned),
+                                templ.KV("text-blue-500 opacity-100", event.IsPinned) }
+                        hx-post={ fmt.Sprintf("/events/%s/toggle-pin", event.ID) }
+                        hx-target={ fmt.Sprintf("#event-%s", event.ID) }
+                        hx-swap="outerHTML">
+                    if event.IsPinned {
+                        <!-- Pin Filled -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
+                    } else {
+                        <!-- Pin Outline -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
+                    }
+				</button>
+				<div class="drag-handle cursor-move text-gray-400 hover:text-gray-600 select-none">
+					<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+				</div>
 			</div>
 		</div>
 		if event.Category != nil {

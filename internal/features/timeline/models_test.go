@@ -14,8 +14,12 @@ func TestEventStructFields(t *testing.T) {
 		Category: &cat,
 		GeoLat:   &lat,
 		GeoLng:   &lng,
+		IsPinned: true,
 	}
 	if *e.Category != "Activity" {
 		t.Error("Category mismatch")
+	}
+	if !e.IsPinned {
+		t.Error("IsPinned mismatch")
 	}
 }
