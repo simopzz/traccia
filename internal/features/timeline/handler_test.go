@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 	"traccia/internal/features/timeline"
 
 	"github.com/go-chi/chi/v5"
@@ -134,5 +135,38 @@ func TestHandleCreateEventValidationFail(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "Error") {
 		t.Errorf("expected error message in body, got %s", w.Body.String())
+	}
+}
+
+func TestHandleReorderEvents(t *testing.T) {
+	db, teardown := mustStartPostgresContainer(t)
+	defer teardown()
+
+	svc := timeline.NewService(db)
+	h := timeline.NewHandler(svc)
+	r := chi.NewRouter()
+	h.RegisterRoutes(r)
+
+	// Create Trip and Events
+	trip, _ := svc.CreateTrip(context.Background(), timeline.CreateTripParams{Name: "Reorder Trip", Destination: "Here"})
+	start := time.Now()
+	end := start.Add(1 * time.Hour)
+	evt1, _ := svc.CreateEvent(context.Background(), timeline.CreateEventParams{TripID: trip.ID, Title: "E1", StartTime: &start, EndTime: &end})
+	evt2, _ := svc.CreateEvent(context.Background(), timeline.CreateEventParams{TripID: trip.ID, Title: "E2", StartTime: &start, EndTime: &end})
+
+	// Form data: event_id=id2&event_id=id1 (reorder)
+	form := url.Values{}
+	form.Add("event_id", evt2.ID.String())
+	form.Add("event_id", evt1.ID.String())
+
+	url := "/trips/" + trip.ID.String() + "/events/reorder"
+	req := httptest.NewRequest("POST", url, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
 	}
 }

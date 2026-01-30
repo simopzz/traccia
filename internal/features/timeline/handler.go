@@ -25,6 +25,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/trips/{id}", h.handleGetTrip)
 	r.Post("/trips/{id}/reset", h.handleResetTrip)
 	r.Post("/trips/{id}/events", h.handleCreateEvent)
+	r.Post("/trips/{id}/events/reorder", h.handleReorderEvents)
 }
 
 func (h *Handler) handleHome(w http.ResponseWriter, r *http.Request) {
@@ -217,5 +218,38 @@ func (h *Handler) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 	// We need a component for the list wrapper content to swap just the inner HTML of #event-list
 	// But since View defines the list container, let's create a small helper or just loop here if we can't export a component easily.
 	// Better: Create an EventList component in components.templ
-	templ.Handler(EventList(events)).ServeHTTP(w, r)
+	templ.Handler(EventList(id, events)).ServeHTTP(w, r)
+}
+
+func (h *Handler) handleReorderEvents(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	tripID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid trip ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	eventIDStrs := r.Form["event_id"]
+	var eventIDs []uuid.UUID
+	for _, idStr := range eventIDStrs {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			http.Error(w, "Invalid event ID", http.StatusBadRequest)
+			return
+		}
+		eventIDs = append(eventIDs, id)
+	}
+
+	events, err := h.service.ReorderEvents(r.Context(), tripID, eventIDs)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to reorder events: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	templ.Handler(EventList(tripID, events)).ServeHTTP(w, r)
 }

@@ -17,6 +17,7 @@ type Service interface {
 	ResetTrip(ctx context.Context, id uuid.UUID) error
 	CreateEvent(ctx context.Context, params CreateEventParams) (*Event, error)
 	GetEvents(ctx context.Context, tripID uuid.UUID) ([]Event, error)
+	ReorderEvents(ctx context.Context, tripID uuid.UUID, eventIDs []uuid.UUID) ([]Event, error)
 }
 
 type service struct {
@@ -186,4 +187,83 @@ func (s *service) GetEvents(ctx context.Context, tripID uuid.UUID) ([]Event, err
 		events = append(events, e)
 	}
 	return events, nil
+}
+
+func (s *service) ReorderEvents(ctx context.Context, tripID uuid.UUID, eventIDs []uuid.UUID) ([]Event, error) {
+	// 1. Fetch all events
+	existingEvents, err := s.GetEvents(ctx, tripID)
+	if err != nil {
+		return nil, err
+	}
+	if len(existingEvents) == 0 {
+		return []Event{}, nil
+	}
+
+	// 2. Map for lookup
+	eventMap := make(map[uuid.UUID]*Event)
+	for i := range existingEvents {
+		eventMap[existingEvents[i].ID] = &existingEvents[i]
+	}
+
+	if len(eventIDs) != len(existingEvents) {
+		return nil, fmt.Errorf("event count mismatch: expected %d, got %d", len(existingEvents), len(eventIDs))
+	}
+
+	// 3. Determine Anchor Start Time
+	if existingEvents[0].StartTime == nil {
+		return nil, fmt.Errorf("first event has no start time")
+	}
+	currentTime := *existingEvents[0].StartTime
+
+	// 4. Update Loop
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var reorderedEvents []Event
+
+	for _, id := range eventIDs {
+		evt, ok := eventMap[id]
+		if !ok {
+			return nil, fmt.Errorf("event %s not found in trip", id)
+		}
+
+		// Calculate Duration
+		var duration time.Duration
+		if evt.StartTime != nil && evt.EndTime != nil {
+			duration = evt.EndTime.Sub(*evt.StartTime)
+		} else {
+			duration = 1 * time.Hour
+		}
+
+		// Update Times
+		newStart := currentTime
+		newEnd := newStart.Add(duration)
+
+		// Create new pointers for time values
+		sTime := newStart
+		eTime := newEnd
+		evt.StartTime = &sTime
+		evt.EndTime = &eTime
+
+		// Update in DB
+		query := `UPDATE events SET start_time = $1, end_time = $2, updated_at = NOW() WHERE id = $3`
+		_, err := tx.ExecContext(ctx, query, newStart, newEnd, evt.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update event %s: %w", evt.ID, err)
+		}
+
+		reorderedEvents = append(reorderedEvents, *evt)
+
+		// Advance time
+		currentTime = newEnd
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return reorderedEvents, nil
 }
