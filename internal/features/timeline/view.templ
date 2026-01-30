@@ -2,10 +2,26 @@ package timeline
 
 import (
     "fmt"
+    "time"
     "traccia/web/layouts"
 )
 
 templ View(trip *Trip, events []Event) {
+	{{
+		defaultStartTime := ""
+		if len(events) > 0 {
+			lastEvent := events[len(events)-1]
+			if lastEvent.EndTime != nil {
+				defaultStartTime = lastEvent.EndTime.Format("2006-01-02T15:04")
+			} else if lastEvent.StartTime != nil {
+				defaultStartTime = lastEvent.StartTime.Add(time.Hour).Format("2006-01-02T15:04")
+			}
+		}
+		
+		if defaultStartTime == "" && trip.StartDate != nil {
+			defaultStartTime = trip.StartDate.Format("2006-01-02") + "T09:00"
+		}
+	}}
     @layouts.Base() {
         <div class="max-w-6xl mx-auto mt-6 p-6">
             <div class="flex justify-between items-center mb-8 border-b pb-4">
@@ -36,11 +52,26 @@ templ View(trip *Trip, events []Event) {
                  <div class="md:col-span-1 bg-white p-6 rounded shadow h-fit">
                      <h2 class="text-xl font-bold mb-4">Add Event</h2>
                      <div id="form-error"></div>
-                     <form hx-post={ fmt.Sprintf("/trips/%s/events", trip.ID) } 
-                           hx-target="#event-list" 
-                           hx-swap="innerHTML"
-                           hx-on::after-request="if(event.detail.successful) this.reset(); document.getElementById('form-error').innerHTML = ''"
-                           hx-on::response-error="document.getElementById('form-error').innerHTML = event.detail.xhr.responseText">
+                             <form hx-post={ fmt.Sprintf("/trips/%s/events", trip.ID) } 
+                                   hx-target="#event-list" 
+                                   hx-swap="innerHTML"
+                                   hx-on::after-request="if(event.detail.successful) this.reset(); document.getElementById('form-error').innerHTML = ''"
+                                   hx-on::response-error="document.getElementById('form-error').innerHTML = event.detail.xhr.responseText"
+                                   x-data="{
+                                       startTime: '',
+                                       endTime: '',
+                                       updateEndTime() {
+                                            if (this.startTime) {
+                                                // Treat as UTC to avoid browser timezone/DST issues
+                                                // We append 'Z' to force UTC parsing of the ISO-like string
+                                                let d = new Date(this.startTime + 'Z');
+                                                // Add 1 hour (in milliseconds)
+                                                d.setTime(d.getTime() + 3600000);
+                                                // Convert back to ISO string (which is always UTC) and strip 'Z' and seconds
+                                                this.endTime = d.toISOString().slice(0, 16);
+                                            }
+                                       }
+                                   }">
                          <div class="mb-4">
                              <label class="block text-gray-700 text-sm font-bold mb-2">Title</label>
                              <input type="text" name="title" required class="w-full border rounded px-3 py-2" />
@@ -61,11 +92,11 @@ templ View(trip *Trip, events []Event) {
                          </div>
                           <div class="mb-4">
                              <label class="block text-gray-700 text-sm font-bold mb-2">Start Time</label>
-                             <input type="datetime-local" name="start_time" required class="w-full border rounded px-3 py-2" />
+                             <input type="datetime-local" name="start_time" required class="w-full border rounded px-3 py-2" value={ defaultStartTime } x-model="startTime" x-init={ fmt.Sprintf("startTime = '%s'", defaultStartTime) } @change="updateEndTime()" />
                          </div>
                           <div class="mb-4">
                              <label class="block text-gray-700 text-sm font-bold mb-2">End Time</label>
-                             <input type="datetime-local" name="end_time" class="w-full border rounded px-3 py-2" />
+                             <input type="datetime-local" name="end_time" class="w-full border rounded px-3 py-2" x-model="endTime" />
                          </div>
                          
                          <input type="hidden" name="geo_lat" value="" />

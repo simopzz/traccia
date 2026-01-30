@@ -5,9 +5,65 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+func TestView_SmartDefaults(t *testing.T) {
+	startDate, _ := time.Parse("2006-01-02", "2026-05-01")
+	trip := &Trip{
+		ID:        uuid.New(),
+		Name:      "Test Trip",
+		StartDate: &startDate,
+	}
+	events := []Event{}
+
+	component := View(trip, events)
+	var buf bytes.Buffer
+	if err := component.Render(context.Background(), &buf); err != nil {
+		t.Fatalf("failed to render view: %v", err)
+	}
+	output := buf.String()
+
+	// Check that the input has the value set or x-init logic
+	expectedDate := "2026-05-01"
+
+	// We expect the form to have Alpine logic or value attribute using this date
+	if !strings.Contains(output, expectedDate) {
+		t.Errorf("expected trip start date %s in output", expectedDate)
+	}
+}
+
+func TestView_SmartDefaults_WithPreviousEvents(t *testing.T) {
+	trip := &Trip{ID: uuid.New(), Name: "Trip"}
+
+	lastEventTime, _ := time.Parse("2006-01-02T15:04", "2026-06-15T14:30")
+	events := []Event{
+		{Title: "Event 1", StartTime: &lastEventTime},
+	}
+
+	component := View(trip, events)
+	var buf bytes.Buffer
+	if err := component.Render(context.Background(), &buf); err != nil {
+		t.Fatalf("failed to render view: %v", err)
+	}
+	output := buf.String()
+
+	// Should default to last event StartTime + 1h (since no EndTime)
+	expectedTime := "2026-06-15T15:30"
+	if !strings.Contains(output, "value=\""+expectedTime) {
+		t.Errorf("expected default time %s based on last event, got output containing it? %v", expectedTime, strings.Contains(output, expectedTime))
+	}
+
+	// Check for x-model binding
+	if !strings.Contains(output, "x-model=\"startTime\"") {
+		t.Errorf("expected x-model=\"startTime\"")
+	}
+	if !strings.Contains(output, "x-model=\"endTime\"") {
+		t.Errorf("expected x-model=\"endTime\"")
+	}
+}
 
 func TestView_IncludesSortableAndReorderingLogic(t *testing.T) {
 	trip := &Trip{
