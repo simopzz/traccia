@@ -1,5 +1,5 @@
 # Story 1.5: pinned-events-logic
-Status: review
+Status: done
 
 ## Story
 As a Planner,
@@ -33,6 +33,9 @@ So that other events flow around them during reordering instead of pushing them.
 - [x] **Frontend Implementation**
     - [x] Add Pin/Unpin button to Event Card.
     - [x] Visual indicator for Pinned state.
+- [x] **Review Follow-ups (AI)**
+    - [x] [AI-Review][Medium] Disable Drag for Pinned Events (UX Fix)
+    - [x] [AI-Review][Low] Add Overlap Test Case
 
 ## Dev Notes
 - This is the foundation for Epic 2.
@@ -46,9 +49,12 @@ So that other events flow around them during reordering instead of pushing them.
 - internal/features/timeline/models_test.go
 - internal/features/timeline/service.go
 - internal/features/timeline/service_test.go
+- internal/features/timeline/service_pinned_test.go
 - internal/features/timeline/handler.go
 - internal/features/timeline/components.templ
 - _bmad-output/implementation-artifacts/sprint-status.yaml
+- Makefile
+- NOTES.md
 
 ## Dev Agent Record
 ### Implementation Notes
@@ -62,3 +68,6 @@ So that other events flow around them during reordering instead of pushing them.
 ### Debug Log
 - **[Issue]** User reported 500 error on Trip Creation (GetTrip). Cause: Missing `is_pinned` column in running DB.
 - **[Fix]** Applied pending migrations (000003) to local database using `migrate` tool.
+### AI Review Fixes
+- **[UX]** Disabled drag handle for Pinned events in `components.templ`. A lock icon is shown instead. This enforces the "Fixed Time" constraint and avoids "snap-back" issues.
+- **[Tests]** Added `TestReorderEvents_OverlapPinned` in `service_pinned_test.go` to verify that the "Ripple" logic correctly stops at a Pinned event (creating a visual overlap/conflict) rather than pushing the Pinned event.
