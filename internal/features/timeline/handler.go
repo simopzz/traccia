@@ -247,7 +247,9 @@ func (h *Handler) handleReorderEvents(w http.ResponseWriter, r *http.Request) {
 
 	events, err := h.service.ReorderEvents(r.Context(), tripID, eventIDs)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to reorder events: %v", err), http.StatusInternalServerError)
+		// Log the actual error (in a real app, use a logger)
+		fmt.Printf("ReorderEvents error: %v\n", err)
+		http.Error(w, "Failed to reorder events", http.StatusInternalServerError)
 		return
 	}
 

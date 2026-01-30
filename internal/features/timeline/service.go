@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const DefaultEventDuration = 1 * time.Hour
+
 var ErrTripNotFound = fmt.Errorf("trip not found")
 
 type Service interface {
@@ -190,16 +192,43 @@ func (s *service) GetEvents(ctx context.Context, tripID uuid.UUID) ([]Event, err
 }
 
 func (s *service) ReorderEvents(ctx context.Context, tripID uuid.UUID, eventIDs []uuid.UUID) ([]Event, error) {
-	// 1. Fetch all events
-	existingEvents, err := s.GetEvents(ctx, tripID)
+	// 1. Start Transaction & Lock
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Rollback()
+
+	// Fetch all events for the trip with locking to prevent race conditions
+	query := `
+		SELECT id, trip_id, title, location, category, geo_lat, geo_lng, start_time, end_time, created_at, updated_at
+		FROM events
+		WHERE trip_id = $1
+		ORDER BY start_time ASC
+		FOR UPDATE
+	`
+	rows, err := tx.QueryContext(ctx, query, tripID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query events for locking: %w", err)
+	}
+	defer rows.Close()
+
+	var existingEvents []Event
+	for rows.Next() {
+		var e Event
+		if err := rows.Scan(
+			&e.ID, &e.TripID, &e.Title, &e.Location, &e.Category, &e.GeoLat, &e.GeoLng, &e.StartTime, &e.EndTime, &e.CreatedAt, &e.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan event: %w", err)
+		}
+		existingEvents = append(existingEvents, e)
+	}
+
 	if len(existingEvents) == 0 {
 		return []Event{}, nil
 	}
 
-	// 2. Map for lookup
+	// 2. Map for lookup & Validation
 	eventMap := make(map[uuid.UUID]*Event)
 	for i := range existingEvents {
 		eventMap[existingEvents[i].ID] = &existingEvents[i]
@@ -209,19 +238,28 @@ func (s *service) ReorderEvents(ctx context.Context, tripID uuid.UUID, eventIDs 
 		return nil, fmt.Errorf("event count mismatch: expected %d, got %d", len(existingEvents), len(eventIDs))
 	}
 
-	// 3. Determine Anchor Start Time
-	if existingEvents[0].StartTime == nil {
-		return nil, fmt.Errorf("first event has no start time")
+	// Validation: Ensure no duplicates in input
+	seen := make(map[uuid.UUID]bool)
+	for _, id := range eventIDs {
+		if seen[id] {
+			return nil, fmt.Errorf("duplicate event ID in reorder list: %s", id)
+		}
+		if _, exists := eventMap[id]; !exists {
+			return nil, fmt.Errorf("event %s not found in trip", id)
+		}
+		seen[id] = true
 	}
-	currentTime := *existingEvents[0].StartTime
+
+	// 3. Determine Anchor Start Time
+	var currentTime time.Time
+	if existingEvents[0].StartTime != nil {
+		currentTime = *existingEvents[0].StartTime
+	} else {
+		// Fallback if the first event has no time: Use Now
+		currentTime = time.Now().Truncate(time.Minute)
+	}
 
 	// 4. Update Loop
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
 	var reorderedEvents []Event
 
 	for _, id := range eventIDs {
@@ -235,7 +273,7 @@ func (s *service) ReorderEvents(ctx context.Context, tripID uuid.UUID, eventIDs 
 		if evt.StartTime != nil && evt.EndTime != nil {
 			duration = evt.EndTime.Sub(*evt.StartTime)
 		} else {
-			duration = 1 * time.Hour
+			duration = DefaultEventDuration
 		}
 
 		// Update Times
@@ -248,9 +286,9 @@ func (s *service) ReorderEvents(ctx context.Context, tripID uuid.UUID, eventIDs 
 		evt.StartTime = &sTime
 		evt.EndTime = &eTime
 
-		// Update in DB
-		query := `UPDATE events SET start_time = $1, end_time = $2, updated_at = NOW() WHERE id = $3`
-		_, err := tx.ExecContext(ctx, query, newStart, newEnd, evt.ID)
+		// Update in DB (using the transaction)
+		updateQuery := `UPDATE events SET start_time = $1, end_time = $2, updated_at = NOW() WHERE id = $3`
+		_, err := tx.ExecContext(ctx, updateQuery, newStart, newEnd, evt.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update event %s: %w", evt.ID, err)
 		}

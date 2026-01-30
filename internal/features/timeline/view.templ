@@ -77,11 +77,10 @@ templ View(trip *Trip, events []Event) {
                  
                  <!-- Timeline -->
                  <div class="md:col-span-2">
-                     <div class="bg-gray-100 p-4 rounded min-h-[500px]" id="timeline-container">
-                         <h2 class="text-xl font-bold mb-4">Itinerary</h2>
-                         <script src="/assets/js/sortable.min.js"></script>
-                         @EventList(trip.ID, events)
-                     </div>
+                  <div class="bg-gray-100 p-4 rounded min-h-[500px]" id="timeline-container">
+                          <h2 class="text-xl font-bold mb-4">Itinerary</h2>
+                          @EventList(trip.ID, events)
+                      </div>
                  </div>
             </div>
         </div>

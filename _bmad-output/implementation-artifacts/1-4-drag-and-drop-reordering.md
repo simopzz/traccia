@@ -1,6 +1,6 @@
 # Story 1.4: drag-and-drop-reordering
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -156,6 +156,13 @@ opencode/gemini-3-pro
 - Created `ReorderEvents` service method with "Ripple Logic" to recalculate times based on new order.
 - Added drag handles to UI.
 - Verified with TDD: Unit tests for Service logic and Handler integration tests.
+
+### Senior Developer Review (AI) - Fixes Applied
+- **Critical Fix:** Wrapped `ReorderEvents` in a transaction with `SELECT ... FOR UPDATE` to prevent race conditions during reordering.
+- **Refactor:** Extracted `DefaultEventDuration` constant to avoid magic numbers.
+- **Testing:** Added `TestReorderEvents_EdgeCases` to cover duplicate IDs, invalid IDs, and nil start times.
+- **Security:** Sanitized error messages in `handleReorderEvents` to prevent leaking DB details.
+- **Architecture:** Moved `sortable.min.js` to `base.templ` head for consistent asset loading.
 
 ### File List
 
