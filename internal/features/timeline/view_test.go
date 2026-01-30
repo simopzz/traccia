@@ -50,8 +50,8 @@ func TestView_SmartDefaults_WithPreviousEvents(t *testing.T) {
 	}
 	output := buf.String()
 
-	// Should default to last event time
-	expectedTime := "2026-06-15T14:30"
+	// Should default to last event StartTime + 1h (since no EndTime)
+	expectedTime := "2026-06-15T15:30"
 	if !strings.Contains(output, "value=\""+expectedTime) {
 		t.Errorf("expected default time %s based on last event, got output containing it? %v", expectedTime, strings.Contains(output, expectedTime))
 	}

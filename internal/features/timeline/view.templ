@@ -2,15 +2,23 @@ package timeline
 
 import (
     "fmt"
+    "time"
     "traccia/web/layouts"
 )
 
 templ View(trip *Trip, events []Event) {
 	{{
 		defaultStartTime := ""
-		if len(events) > 0 && events[len(events)-1].StartTime != nil {
-			defaultStartTime = events[len(events)-1].StartTime.Format("2006-01-02T15:04")
-		} else if trip.StartDate != nil {
+		if len(events) > 0 {
+			lastEvent := events[len(events)-1]
+			if lastEvent.EndTime != nil {
+				defaultStartTime = lastEvent.EndTime.Format("2006-01-02T15:04")
+			} else if lastEvent.StartTime != nil {
+				defaultStartTime = lastEvent.StartTime.Add(time.Hour).Format("2006-01-02T15:04")
+			}
+		}
+		
+		if defaultStartTime == "" && trip.StartDate != nil {
 			defaultStartTime = trip.StartDate.Format("2006-01-02") + "T09:00"
 		}
 	}}
@@ -54,12 +62,13 @@ templ View(trip *Trip, events []Event) {
                                        endTime: '',
                                        updateEndTime() {
                                             if (this.startTime) {
-                                                let d = new Date(this.startTime);
-                                                d.setHours(d.getHours() + 1);
-                                                // Adjust for timezone offset to keep local time correct in ISO string
-                                                let offset = d.getTimezoneOffset() * 60000;
-                                                let localISOTime = (new Date(d - offset)).toISOString().slice(0, 16);
-                                                this.endTime = localISOTime;
+                                                // Treat as UTC to avoid browser timezone/DST issues
+                                                // We append 'Z' to force UTC parsing of the ISO-like string
+                                                let d = new Date(this.startTime + 'Z');
+                                                // Add 1 hour (in milliseconds)
+                                                d.setTime(d.getTime() + 3600000);
+                                                // Convert back to ISO string (which is always UTC) and strip 'Z' and seconds
+                                                this.endTime = d.toISOString().slice(0, 16);
                                             }
                                        }
                                    }">

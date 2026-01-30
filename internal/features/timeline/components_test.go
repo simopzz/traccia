@@ -43,9 +43,9 @@ func TestEventCardRendering(t *testing.T) {
 		t.Errorf("expected style %s in output, got %s", expectedStyle, output)
 	}
 
-	// Check for min-h and max-h classes
-	if !strings.Contains(output, "min-h-[60px]") {
-		t.Errorf("expected class min-h-[60px] in output, got %s", output)
+	// Check for min-h classes
+	if !strings.Contains(output, "min-h-[40px]") {
+		t.Errorf("expected class min-h-[40px] in output for normal event, got %s", output)
 	}
 	if !strings.Contains(output, "max-h-[300px]") {
 		t.Errorf("expected class max-h-[300px] in output, got %s", output)
@@ -71,9 +71,9 @@ func TestEventCardHeightConstraints(t *testing.T) {
 	timeline.EventCard(eventShort).Render(context.Background(), &sbShort)
 	outputShort := sbShort.String()
 
-	// Should have min-h-[60px] and overflow-hidden
-	if !strings.Contains(outputShort, "min-h-[60px]") {
-		t.Errorf("expected min-h-[60px] for short event")
+	// Should have min-h-[16px] for compact mode
+	if !strings.Contains(outputShort, "min-h-[16px]") {
+		t.Errorf("expected min-h-[16px] for short event")
 	}
 	if !strings.Contains(outputShort, "overflow-hidden") {
 		t.Errorf("expected overflow-hidden for short event")

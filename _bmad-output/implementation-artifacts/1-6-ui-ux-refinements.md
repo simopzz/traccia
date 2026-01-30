@@ -1,5 +1,5 @@
 # Story 1.6: ui-ux-refinements
-Status: review
+Status: done
 
 ## Story
 As a Planner,
@@ -37,6 +37,10 @@ So that the planning experience is smooth and informative.
     - [x] **Smart Default End Time**: Set default End Time to Start Time + 1 hour.
     - [x] **UX Fix**: Remove scrollbar from short events (conditional overflow).
     - [x] **Fix Short Event Visibility**: Increase `min-height` to ensure Time is visible without scrolling.
+    - [x] [AI-Review][High] Remove ignored `_templ.go` files from Story File List [1-6-ui-ux-refinements.md]
+    - [x] [AI-Review][Medium] Fix Visual Timeline Distortion: Reduce `min-h` to 40px [internal/features/timeline/components.templ]
+    - [x] [AI-Review][Medium] Fix Default Start Time: Use previous event EndTime or StartTime+1h [internal/features/timeline/view.templ]
+    - [x] [AI-Review][Low] Investigate Timezone Fragility in Alpine.js defaults [internal/features/timeline/view.templ]
 
 ## Dev Notes
 - For min-height: Ensure the visual timeline still roughly correlates to time, but prioritize readability. The "64px/hr" rule can be "soft" for <30m events.
@@ -57,13 +61,10 @@ So that the planning experience is smooth and informative.
 
 ## File List
 - internal/features/timeline/components.templ
-- internal/features/timeline/components_templ.go
 - internal/features/timeline/components_test.go
 - internal/features/timeline/home.templ
-- internal/features/timeline/home_templ.go
 - internal/features/timeline/home_test.go
 - internal/features/timeline/view.templ
-- internal/features/timeline/view_templ.go
 - internal/features/timeline/view_test.go
 
 ## Change Log
