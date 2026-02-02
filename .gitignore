@@ -1,0 +1,17 @@
+# Generated
+*.gen.go
+*_templ.go
+
+# Build
+bin/
+tmp/
+
+# Environment
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store

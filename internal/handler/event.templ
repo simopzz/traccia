@@ -1,0 +1,127 @@
+package handler
+
+import (
+	"fmt"
+	"github.com/simopzz/traccia/internal/domain"
+	"time"
+)
+
+templ EventTimelineItem(event domain.Event) {
+	<div class={ "timeline-item", templ.KV("pinned", event.Pinned) } id={ fmt.Sprintf("event-%d", event.ID) }>
+		<div class="timeline-time">
+			{ event.StartTime.Format("3:04 PM") } - { event.EndTime.Format("3:04 PM") }
+		</div>
+		<div class="timeline-title">
+			<span class={ "category-badge", fmt.Sprintf("category-%s", event.Category) }>
+				{ string(event.Category) }
+			</span>
+			{ event.Title }
+		</div>
+		if event.Location != "" {
+			<div class="timeline-location">📍 { event.Location }</div>
+		}
+		<div class="actions">
+			<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d/events/%d/edit", event.TripID, event.ID)) } class="btn btn-secondary">Edit</a>
+			<button
+				class="btn btn-danger"
+				hx-delete={ fmt.Sprintf("/trips/%d/events/%d", event.TripID, event.ID) }
+				hx-target={ fmt.Sprintf("#event-%d", event.ID) }
+				hx-swap="outerHTML"
+				hx-confirm="Delete this event?"
+			>
+				Delete
+			</button>
+		</div>
+	</div>
+}
+
+templ EventNewPage(tripID int, suggestedStart time.Time) {
+	@Layout("New Event") {
+		<h1>Add Event</h1>
+		<div class="card">
+			<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/trips/%d/events", tripID)) }>
+				<div class="form-group">
+					<label for="title">Event Title</label>
+					<input type="text" id="title" name="title" required/>
+				</div>
+				<div class="form-group">
+					<label for="category">Category</label>
+					<select id="category" name="category">
+						<option value="activity">Activity</option>
+						<option value="food">Food</option>
+						<option value="lodging">Lodging</option>
+						<option value="transit">Transit</option>
+					</select>
+				</div>
+				<div class="form-group">
+					<label for="location">Location</label>
+					<input type="text" id="location" name="location"/>
+				</div>
+				<div class="form-row">
+					<div class="form-group">
+						<label for="start_time">Start Time</label>
+						<input type="datetime-local" id="start_time" name="start_time" value={ formatDateTimeInput(suggestedStart) } required/>
+					</div>
+					<div class="form-group">
+						<label for="end_time">End Time</label>
+						<input type="datetime-local" id="end_time" name="end_time" value={ formatDateTimeInput(suggestedStart.Add(time.Hour)) } required/>
+					</div>
+				</div>
+				<div class="form-group">
+					<label>
+						<input type="checkbox" name="pinned" value="true"/>
+						Pin this event (highlight in timeline)
+					</label>
+				</div>
+				<button type="submit" class="btn">Add Event</button>
+				<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d", tripID)) } class="btn btn-secondary" style="margin-left: 0.5rem;">Cancel</a>
+			</form>
+		</div>
+	}
+}
+
+templ EventEditPage(event *domain.Event) {
+	@Layout("Edit Event") {
+		<h1>Edit Event</h1>
+		<div class="card">
+			<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/trips/%d/events/%d", event.TripID, event.ID)) }>
+				<input type="hidden" name="_method" value="PUT"/>
+				<div class="form-group">
+					<label for="title">Event Title</label>
+					<input type="text" id="title" name="title" value={ event.Title } required/>
+				</div>
+				<div class="form-group">
+					<label for="category">Category</label>
+					<select id="category" name="category">
+						<option value="activity" selected?={ event.Category == domain.CategoryActivity }>Activity</option>
+						<option value="food" selected?={ event.Category == domain.CategoryFood }>Food</option>
+						<option value="lodging" selected?={ event.Category == domain.CategoryLodging }>Lodging</option>
+						<option value="transit" selected?={ event.Category == domain.CategoryTransit }>Transit</option>
+					</select>
+				</div>
+				<div class="form-group">
+					<label for="location">Location</label>
+					<input type="text" id="location" name="location" value={ event.Location }/>
+				</div>
+				<div class="form-row">
+					<div class="form-group">
+						<label for="start_time">Start Time</label>
+						<input type="datetime-local" id="start_time" name="start_time" value={ formatDateTimeInput(event.StartTime) } required/>
+					</div>
+					<div class="form-group">
+						<label for="end_time">End Time</label>
+						<input type="datetime-local" id="end_time" name="end_time" value={ formatDateTimeInput(event.EndTime) } required/>
+					</div>
+				</div>
+				<div class="form-group">
+					<label>
+						<input type="checkbox" name="pinned" value="true" checked?={ event.Pinned }/>
+						Pin this event (highlight in timeline)
+					</label>
+				</div>
+				<button type="submit" class="btn">Save Changes</button>
+				<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d", event.TripID)) } class="btn btn-secondary" style="margin-left: 0.5rem;">Cancel</a>
+			</form>
+		</div>
+	}
+}

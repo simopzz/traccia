@@ -1,0 +1,149 @@
+package handler
+
+import (
+	"fmt"
+	"github.com/simopzz/traccia/internal/domain"
+)
+
+templ TripListPage(trips []domain.Trip) {
+	@Layout("Trips") {
+		<h1>My Trips</h1>
+		<div style="margin-bottom: 1.5rem;">
+			<a href="/trips/new" class="btn">New Trip</a>
+		</div>
+		<div id="trip-list">
+			if len(trips) == 0 {
+				<div class="empty-state">
+					<p>No trips yet. Create your first trip to get started!</p>
+				</div>
+			} else {
+				for _, trip := range trips {
+					@TripCard(trip)
+				}
+			}
+		</div>
+	}
+}
+
+templ TripCard(trip domain.Trip) {
+	<div class="card" id={ fmt.Sprintf("trip-%d", trip.ID) }>
+		<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) }>
+			<div class="card-title">{ trip.Name }</div>
+		</a>
+		<div class="card-meta">{ trip.Destination }</div>
+		if !trip.StartDate.IsZero() {
+			<div class="card-meta">
+				{ trip.StartDate.Format("Jan 2, 2006") }
+				if !trip.EndDate.IsZero() {
+					- { trip.EndDate.Format("Jan 2, 2006") }
+				}
+			</div>
+		}
+		<div class="actions">
+			<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d/edit", trip.ID)) } class="btn btn-secondary">Edit</a>
+			<button
+				class="btn btn-danger"
+				hx-delete={ fmt.Sprintf("/trips/%d", trip.ID) }
+				hx-target={ fmt.Sprintf("#trip-%d", trip.ID) }
+				hx-swap="outerHTML"
+				hx-confirm="Delete this trip?"
+			>
+				Delete
+			</button>
+		</div>
+	</div>
+}
+
+templ TripNewPage() {
+	@Layout("New Trip") {
+		<h1>New Trip</h1>
+		<div class="card">
+			<form method="POST" action="/trips">
+				<div class="form-group">
+					<label for="name">Trip Name</label>
+					<input type="text" id="name" name="name" required/>
+				</div>
+				<div class="form-group">
+					<label for="destination">Destination</label>
+					<input type="text" id="destination" name="destination" required/>
+				</div>
+				<div class="form-row">
+					<div class="form-group">
+						<label for="start_date">Start Date</label>
+						<input type="date" id="start_date" name="start_date"/>
+					</div>
+					<div class="form-group">
+						<label for="end_date">End Date</label>
+						<input type="date" id="end_date" name="end_date"/>
+					</div>
+				</div>
+				<button type="submit" class="btn">Create Trip</button>
+				<a href="/" class="btn btn-secondary" style="margin-left: 0.5rem;">Cancel</a>
+			</form>
+		</div>
+	}
+}
+
+templ TripEditPage(trip *domain.Trip) {
+	@Layout("Edit Trip") {
+		<h1>Edit Trip</h1>
+		<div class="card">
+			<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) }>
+				<input type="hidden" name="_method" value="PUT"/>
+				<div class="form-group">
+					<label for="name">Trip Name</label>
+					<input type="text" id="name" name="name" value={ trip.Name } required/>
+				</div>
+				<div class="form-group">
+					<label for="destination">Destination</label>
+					<input type="text" id="destination" name="destination" value={ trip.Destination } required/>
+				</div>
+				<div class="form-row">
+					<div class="form-group">
+						<label for="start_date">Start Date</label>
+						<input type="date" id="start_date" name="start_date" value={ formatDateInput(trip.StartDate) }/>
+					</div>
+					<div class="form-group">
+						<label for="end_date">End Date</label>
+						<input type="date" id="end_date" name="end_date" value={ formatDateInput(trip.EndDate) }/>
+					</div>
+				</div>
+				<button type="submit" class="btn">Save Changes</button>
+				<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) } class="btn btn-secondary" style="margin-left: 0.5rem;">Cancel</a>
+			</form>
+		</div>
+	}
+}
+
+templ TripDetailPage(trip *domain.Trip, events []domain.Event) {
+	@Layout(trip.Name) {
+		<h1>{ trip.Name }</h1>
+		<div class="card-meta" style="margin-bottom: 1rem;">
+			{ trip.Destination }
+			if !trip.StartDate.IsZero() {
+				• { trip.StartDate.Format("Jan 2, 2006") }
+				if !trip.EndDate.IsZero() {
+					- { trip.EndDate.Format("Jan 2, 2006") }
+				}
+			}
+		</div>
+		<div style="margin-bottom: 1.5rem;">
+			<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d/edit", trip.ID)) } class="btn btn-secondary">Edit Trip</a>
+			<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d/events/new", trip.ID)) } class="btn" style="margin-left: 0.5rem;">Add Event</a>
+		</div>
+		<h2>Timeline</h2>
+		<div id="event-list">
+			if len(events) == 0 {
+				<div class="empty-state">
+					<p>No events yet. Add your first event!</p>
+				</div>
+			} else {
+				<div class="timeline">
+					for _, event := range events {
+						@EventTimelineItem(event)
+					}
+				</div>
+			}
+		</div>
+	}
+}
