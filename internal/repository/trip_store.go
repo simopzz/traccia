@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/simopzz/traccia/internal/domain"
 )
 
@@ -34,7 +35,7 @@ func (s *TripStore) Create(ctx context.Context, trip *domain.Trip) error {
 	if err != nil {
 		return err
 	}
-	*trip = tripRowToDomain(row)
+	*trip = tripRowToDomain(&row)
 	return nil
 }
 
@@ -46,7 +47,7 @@ func (s *TripStore) GetByID(ctx context.Context, id int) (*domain.Trip, error) {
 		}
 		return nil, err
 	}
-	trip := tripRowToDomain(row)
+	trip := tripRowToDomain(&row)
 	return &trip, nil
 }
 
@@ -64,8 +65,8 @@ func (s *TripStore) List(ctx context.Context, userID *string) ([]domain.Trip, er
 	}
 
 	trips := make([]domain.Trip, len(rows))
-	for i, row := range rows {
-		trips[i] = tripRowToDomain(row)
+	for i := range rows {
+		trips[i] = tripRowToDomain(&rows[i])
 	}
 	return trips, nil
 }
@@ -89,7 +90,7 @@ func (s *TripStore) Update(ctx context.Context, id int, updater func(*domain.Tri
 		return nil, err
 	}
 
-	result := tripRowToDomain(row)
+	result := tripRowToDomain(&row)
 	return &result, nil
 }
 
@@ -97,7 +98,7 @@ func (s *TripStore) Delete(ctx context.Context, id int) error {
 	return s.queries.DeleteTrip(ctx, int32(id))
 }
 
-func tripRowToDomain(row Trip) domain.Trip {
+func tripRowToDomain(row *Trip) domain.Trip {
 	return domain.Trip{
 		ID:          int(row.ID),
 		Name:        row.Name,

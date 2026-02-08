@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/simopzz/traccia/internal/domain"
 )
 
@@ -47,7 +48,7 @@ func (s *EventStore) Create(ctx context.Context, event *domain.Event) error {
 	if err != nil {
 		return err
 	}
-	*event = eventRowToDomain(row)
+	*event = eventRowToDomain(&row)
 	return nil
 }
 
@@ -59,7 +60,7 @@ func (s *EventStore) GetByID(ctx context.Context, id int) (*domain.Event, error)
 		}
 		return nil, err
 	}
-	event := eventRowToDomain(row)
+	event := eventRowToDomain(&row)
 	return &event, nil
 }
 
@@ -70,8 +71,8 @@ func (s *EventStore) ListByTrip(ctx context.Context, tripID int) ([]domain.Event
 	}
 
 	events := make([]domain.Event, len(rows))
-	for i, row := range rows {
-		events[i] = eventRowToDomain(row)
+	for i := range rows {
+		events[i] = eventRowToDomain(&rows[i])
 	}
 	return events, nil
 }
@@ -100,7 +101,7 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 		return nil, err
 	}
 
-	result := eventRowToDomain(row)
+	result := eventRowToDomain(&row)
 	return &result, nil
 }
 
@@ -116,11 +117,11 @@ func (s *EventStore) GetLastEventByTrip(ctx context.Context, tripID int) (*domai
 		}
 		return nil, err
 	}
-	event := eventRowToDomain(row)
+	event := eventRowToDomain(&row)
 	return &event, nil
 }
 
-func eventRowToDomain(row Event) domain.Event {
+func eventRowToDomain(row *Event) domain.Event {
 	var lat, lng *float64
 	if row.Latitude.Valid {
 		lat = &row.Latitude.Float64

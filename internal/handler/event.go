@@ -7,6 +7,7 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
+
 	"github.com/simopzz/traccia/internal/domain"
 	"github.com/simopzz/traccia/internal/service"
 )
@@ -41,12 +42,12 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseForm(); err != nil {
+	if err = r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
 
-	input := service.CreateEventInput{
+	input := &service.CreateEventInput{
 		TripID:    tripID,
 		Title:     r.FormValue("title"),
 		Category:  domain.EventCategory(r.FormValue("category")),
@@ -99,7 +100,7 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseForm(); err != nil {
+	if err = r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}

@@ -3,13 +3,13 @@ package domain
 import "time"
 
 type Trip struct {
-	ID          int
-	Name        string
-	Destination string
 	StartDate   time.Time
 	EndDate     time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	Name        string
+	Destination string
+	ID          int
 }
 
 type EventCategory string
@@ -22,17 +22,17 @@ const (
 )
 
 type Event struct {
-	ID        int
-	TripID    int
-	Title     string
-	Category  EventCategory
-	Location  string
-	Latitude  *float64 // nullable for optional coordinates
-	Longitude *float64
 	StartTime time.Time
 	EndTime   time.Time
-	Pinned    bool
-	Position  int // for ordering within trip
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	Title     string
+	Category  EventCategory
+	Latitude  *float64 // nullable for optional coordinates
+	Longitude *float64
+	Location  string
+	ID        int
+	TripID    int
+	Position  int // for ordering within trip
+	Pinned    bool
 }

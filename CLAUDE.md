@@ -14,15 +14,15 @@ Traccia is a trip planning web app built with Go. Users create trips and populat
 ## Commands
 
 ```bash
-make dev              # Hot reload via air
-make build            # Build binary to bin/app
-make test             # go test -v -race ./...
-make lint             # golangci-lint run
-make generate         # sqlc generate && templ generate (run after changing .sql queries or .templ files)
-make docker-up        # Start PostgreSQL container
-make docker-down      # Stop PostgreSQL container
-make migrate-up       # Apply database migrations
-make migrate-down     # Rollback database migrations
+just dev              # Hot reload via air
+just build            # Build binary to bin/app
+just test             # go test -v -race ./...
+just lint             # Auto-format then golangci-lint run
+just generate         # sqlc generate && templ generate (run after changing .sql queries or .templ files)
+just docker-up        # Start PostgreSQL container
+just docker-down      # Stop PostgreSQL container
+just migrate-up       # Apply database migrations
+just migrate-down     # Rollback database migrations
 ```
 
 Run a single test: `go test -v -race -run TestName ./internal/service/...`
@@ -53,7 +53,7 @@ migrations/               → PostgreSQL migration files (also used as sqlc sche
 
 ## Code Generation
 
-Two tools generate code — always run `make generate` after changes:
+Two tools generate code — always run `just generate` after changes:
 
 1. **sqlc**: Reads schema from `migrations/`, queries from `internal/repository/sql/*.sql`. Generates `internal/repository/{models,db,*_sql}.go`. Query format: `-- name: FuncName :one|:many|:exec`
 2. **templ**: Compiles `.templ` files into `*_templ.go` alongside them. Templates are type-safe Go components.
@@ -83,7 +83,7 @@ Never edit generated files (`*_templ.go`, `*_sql.go`, `models.go`, `db.go` in re
 - Table-driven tests with explicit input/output expectations
 - Use external test packages (`package foo_test`) for black-box testing
 - Test all exported functions and error paths
-- Run with `-race` flag (already in `make test`)
+- Run with `-race` flag (already in `just test`)
 
 **Modern Go**:
 - Use `any` instead of `interface{}`

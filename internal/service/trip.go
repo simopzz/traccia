@@ -17,13 +17,13 @@ func NewTripService(repo domain.TripRepository) *TripService {
 }
 
 type CreateTripInput struct {
-	Name        string
-	Destination string
 	StartDate   time.Time
 	EndDate     time.Time
+	Name        string
+	Destination string
 }
 
-func (s *TripService) Create(ctx context.Context, input CreateTripInput) (*domain.Trip, error) {
+func (s *TripService) Create(ctx context.Context, input *CreateTripInput) (*domain.Trip, error) {
 	if input.Name == "" {
 		return nil, fmt.Errorf("%w: name is required", domain.ErrInvalidInput)
 	}

@@ -21,8 +21,13 @@ run: build
 test:
     go test -v -race ./...
 
-# Run golangci-lint
-lint:
+# Auto-fix formatting and imports
+fmt:
+    gofmt -w .
+    goimports -w -local github.com/simopzz/traccia .
+
+# Run formatter then golangci-lint
+lint: fmt
     golangci-lint run
 
 # Run sqlc and templ code generation
@@ -41,6 +46,7 @@ tools:
     @command -v sqlc >/dev/null || go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
     @command -v templ >/dev/null || go install github.com/a-h/templ/cmd/templ@latest
     @command -v golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    @command -v goimports >/dev/null || go install golang.org/x/tools/cmd/goimports@latest
     @command -v migrate >/dev/null || go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
 # Start PostgreSQL container

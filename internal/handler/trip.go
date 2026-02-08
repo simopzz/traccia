@@ -7,6 +7,7 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
+
 	"github.com/simopzz/traccia/internal/domain"
 	"github.com/simopzz/traccia/internal/service"
 )
@@ -44,7 +45,7 @@ func (h *TripHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	input := service.CreateTripInput{
+	input := &service.CreateTripInput{
 		Name:        r.FormValue("name"),
 		Destination: r.FormValue("destination"),
 		StartDate:   parseDate(r.FormValue("start_date")),
@@ -120,7 +121,7 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseForm(); err != nil {
+	if err = r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
