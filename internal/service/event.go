@@ -22,18 +22,18 @@ func NewEventService(repo EventStore) *EventService {
 }
 
 type CreateEventInput struct {
-	TripID    int
-	Title     string
-	Category  domain.EventCategory
-	Location  string
-	Latitude  *float64
-	Longitude *float64
 	StartTime time.Time
 	EndTime   time.Time
+	Title     string
+	Category  domain.EventCategory
+	Latitude  *float64
+	Longitude *float64
+	Location  string
+	TripID    int
 	Pinned    bool
 }
 
-func (s *EventService) Create(ctx context.Context, input CreateEventInput) (*domain.Event, error) {
+func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*domain.Event, error) {
 	if input.Title == "" {
 		return nil, fmt.Errorf("%w: title is required", domain.ErrInvalidInput)
 	}

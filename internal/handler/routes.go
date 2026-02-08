@@ -20,7 +20,7 @@ func NewRouter(tripHandler *TripHandler, eventHandler *EventHandler) http.Handle
 
 	// Routes
 	r.Group(func(r chi.Router) {
-		// r.Use(authMiddleware) // uncomment when ready for Supabase auth
+		// TODO: enable r.Use(authMiddleware) when Supabase auth is ready
 
 		// Trip routes
 		r.Get("/", tripHandler.List)
