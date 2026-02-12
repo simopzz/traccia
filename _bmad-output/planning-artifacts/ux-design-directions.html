@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>traccia — Design Direction Exploration</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand: #008080;
+    --brand-dark: #006d6d;
+    --brand-light: #e0f2f1;
+    --canvas: #f8fafc;
+    --surface: #ffffff;
+    --surface-secondary: #f1f5f9;
+    --border: #e2e8f0;
+    --border-emphasis: #cbd5e1;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --text-tertiary: #94a3b8;
+    --signal-safe: #059669;
+    --signal-warn: #f59e0b;
+    --signal-risk: #e11d48;
+    /* Event type accents */
+    --type-activity: #008080;
+    --type-food: #d97706;
+    --type-lodging: #7c3aed;
+    --type-transit: #475569;
+    --type-flight: #2563eb;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--text-primary);
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* Navigation */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--text-primary);
+    border-bottom: 2px solid var(--brand);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    overflow-x: auto;
+  }
+  .nav-title {
+    color: var(--brand);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .nav-btn {
+    background: transparent;
+    border: 1px solid #475569;
+    color: #94a3b8;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .nav-btn:hover, .nav-btn.active {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: white;
+  }
+
+  /* Section */
+  .section {
+    display: none;
+    min-height: 100vh;
+    background: var(--canvas);
+    padding: 48px 32px;
+  }
+  .section.active { display: block; }
+  .section-header {
+    max-width: 800px;
+    margin: 0 auto 40px;
+  }
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  .section-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  .section-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border-radius: 3px;
+    margin-bottom: 12px;
+  }
+
+  /* Timeline container */
+  .timeline-container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  /* Day header */
+  .day-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--text-primary);
+  }
+  .day-number {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+  }
+  .day-date {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .day-summary {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  /* Type icons (emoji-based for demo) */
+  .type-icon {
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  /* ============================================
+     DIRECTION A: Swiss Bordered Cards + Spine
+     ============================================ */
+  .dir-a .timeline {
+    position: relative;
+    padding-left: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .dir-a .timeline::before {
+    content: '';
+    position: absolute;
+    left: 18px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-emphasis);
+  }
+  .dir-a .event-card {
+    background: var(--surface);
+    border: 2px solid var(--text-primary);
+    box-shadow: 3px 3px 0 var(--text-primary);
+    padding: 16px;
+    position: relative;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .dir-a .event-card:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--text-primary);
+  }
+  .dir-a .spine-dot {
+    position: absolute;
+    left: -38px;
+    top: 20px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--text-primary);
+    background: var(--surface);
+  }
+  .dir-a .spine-dot.pinned {
+    background: var(--text-primary);
+  }
+  .dir-a .event-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .dir-a .event-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+  }
+  .dir-a .event-time {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .dir-a .event-meta {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    display: flex;
+    gap: 16px;
+  }
+  .dir-a .event-meta .mono {
+    font-size: 11px;
+  }
+  .dir-a .pin-badge {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-primary);
+    background: var(--surface-secondary);
+    padding: 2px 6px;
+    border: 1px solid var(--border-emphasis);
+  }
+
+  /* Height tiers for Direction A */
+  .dir-a .tier-short { /* <1hr */ }
+  .dir-a .tier-medium { padding: 20px 16px; }
+  .dir-a .tier-long { padding: 28px 16px; }
+
+  /* ============================================
+     DIRECTION B: Minimal Accent Bar + No Spine
+     ============================================ */
+  .dir-b .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .dir-b .event-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--type-activity);
+    border-radius: 6px;
+    padding: 16px 16px 16px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .dir-b .event-card:hover {
+    background: var(--surface-secondary);
+    border-color: var(--border-emphasis);
+  }
+  .dir-b .event-card[data-type="food"] { border-left-color: var(--type-food); }
+  .dir-b .event-card[data-type="lodging"] { border-left-color: var(--type-lodging); }
+  .dir-b .event-card[data-type="transit"] { border-left-color: var(--type-transit); }
+  .dir-b .event-card[data-type="flight"] { border-left-color: var(--type-flight); }
+  .dir-b .event-card[data-type="activity"] { border-left-color: var(--type-activity); }
+  .dir-b .event-time-col {
+    width: 100px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .dir-b .event-time-start {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .dir-b .event-time-end {
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+  .dir-b .event-body { flex: 1; }
+  .dir-b .event-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .dir-b .event-location {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .dir-b .event-badges {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .dir-b .duration-pill {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    background: var(--surface-secondary);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .dir-b .pin-indicator {
+    width: 8px;
+    height: 8px;
+    background: var(--text-primary);
+    border-radius: 50%;
+  }
+
+  /* ============================================
+     DIRECTION C: Fixed Height + Duration Bar
+     ============================================ */
+  .dir-c .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .dir-c .event-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.15s;
+  }
+  .dir-c .event-card:hover {
+    background: var(--surface-secondary);
+  }
+  .dir-c .duration-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--brand-light);
+    transition: width 0.3s;
+  }
+  .dir-c .event-card[data-type="food"] .duration-bar { background: #fef3c7; }
+  .dir-c .event-card[data-type="lodging"] .duration-bar { background: #ede9fe; }
+  .dir-c .event-card[data-type="transit"] .duration-bar { background: #f1f5f9; }
+  .dir-c .event-card[data-type="flight"] .duration-bar { background: #dbeafe; }
+  .dir-c .type-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: white;
+    font-weight: 700;
+  }
+  .dir-c .type-dot.activity { background: var(--type-activity); }
+  .dir-c .type-dot.food { background: var(--type-food); }
+  .dir-c .type-dot.lodging { background: var(--type-lodging); }
+  .dir-c .type-dot.transit { background: var(--type-transit); }
+  .dir-c .type-dot.flight { background: var(--type-flight); }
+  .dir-c .event-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .dir-c .event-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .dir-c .event-detail {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .dir-c .event-right {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .dir-c .event-time {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .dir-c .event-duration {
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+  .dir-c .gap-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px 6px 48px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+  }
+  .dir-c .gap-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ============================================
+     DIRECTION D: Notion-style Blocks + Tiered
+     ============================================ */
+  .dir-d .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .dir-d .event-card {
+    background: var(--surface);
+    border-radius: 8px;
+    padding: 16px 20px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .dir-d .event-card:hover {
+    background: var(--surface-secondary);
+    border-color: var(--border);
+  }
+  .dir-d .event-card.tier-short { padding: 12px 20px; }
+  .dir-d .event-card.tier-long { padding: 24px 20px; }
+  .dir-d .event-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .dir-d .type-tag {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+  .dir-d .type-tag.activity { background: var(--brand-light); color: var(--brand-dark); }
+  .dir-d .type-tag.food { background: #fef3c7; color: #92400e; }
+  .dir-d .type-tag.lodging { background: #ede9fe; color: #5b21b6; }
+  .dir-d .type-tag.transit { background: #f1f5f9; color: #475569; }
+  .dir-d .type-tag.flight { background: #dbeafe; color: #1e40af; }
+  .dir-d .event-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .dir-d .event-details {
+    display: flex;
+    gap: 20px;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .dir-d .event-details .mono { font-size: 12px; }
+  .dir-d .pinned-lock {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+  .dir-d .day-header {
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Empty state */
+  .empty-slot {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .empty-slot:hover {
+    border-color: var(--brand);
+    color: var(--brand);
+    background: var(--brand-light);
+  }
+
+  /* Signal demo */
+  .signal-demo {
+    max-width: 800px;
+    margin: 40px auto 0;
+    padding: 20px;
+    background: #fff5f5;
+    border-left: 4px solid var(--signal-risk);
+    border-radius: 0 6px 6px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+  .signal-demo.warn {
+    background: #fffbeb;
+    border-left-color: var(--signal-warn);
+  }
+  .signal-icon { font-size: 16px; flex-shrink: 0; }
+
+  /* Comparison grid */
+  .compare-grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+  .compare-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .compare-label {
+    background: var(--text-primary);
+    color: white;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+  }
+  .compare-body {
+    padding: 24px;
+  }
+
+  @media (max-width: 768px) {
+    .nav { padding: 12px 16px; gap: 8px; }
+    .section { padding: 24px 16px; }
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-title">traccia</span>
+  <button class="nav-btn active" onclick="showSection('overview')">Overview</button>
+  <button class="nav-btn" onclick="showSection('dir-a')">A: Swiss + Spine</button>
+  <button class="nav-btn" onclick="showSection('dir-b')">B: Accent Bar</button>
+  <button class="nav-btn" onclick="showSection('dir-c')">C: Fixed + Duration Bar</button>
+  <button class="nav-btn" onclick="showSection('dir-d')">D: Notion Blocks</button>
+  <button class="nav-btn" onclick="showSection('compare')">Compare</button>
+  <button class="nav-btn" onclick="showSection('signals')">Signals</button>
+</nav>
+
+<!-- OVERVIEW -->
+<section id="overview" class="section active">
+  <div class="section-header">
+    <span class="section-tag" style="background: var(--brand-light); color: var(--brand-dark);">Design Exploration</span>
+    <h1 class="section-title">traccia Design Directions</h1>
+    <p class="section-desc">
+      Four variations within the Swiss/Brutalist direction, each exploring different answers to the open design questions:
+      event card style, duration representation, timeline structure, and information density.
+      All share the same color system (teal accent, signal palette), typography (Inter + JetBrains Mono), and spacious layout.
+    </p>
+    <br>
+    <p class="section-desc">
+      <strong>A: Swiss + Spine</strong> — Bold bordered cards with hard shadows, connected by a vertical timeline spine. Tiered card heights for duration. Most "brutalist."<br><br>
+      <strong>B: Accent Bar</strong> — Minimal cards with a colored left border per event type. Time column on the left. Duration as a pill badge. Clean and scannable.<br><br>
+      <strong>C: Fixed Height + Duration Bar</strong> — All cards same height for consistency. Duration shown as a colored bar at the bottom. Compact, data-dense, Linear-inspired.<br><br>
+      <strong>D: Notion Blocks</strong> — Borderless cards with type tags and generous spacing. Tiered heights. Most spacious and calm. Notion-inspired.
+    </p>
+  </div>
+</section>
+
+<!-- DIRECTION A: Swiss + Spine -->
+<section id="dir-a" class="section dir-a">
+  <div class="section-header">
+    <span class="section-tag" style="background: var(--text-primary); color: white;">Direction A</span>
+    <h1 class="section-title">Swiss Bordered Cards + Timeline Spine</h1>
+    <p class="section-desc">Bold borders, hard shadows, vertical spine connecting events. Tiered card heights hint at duration. Pinned events shown with filled spine dots. The most "field guide" of the four.</p>
+  </div>
+  <div class="timeline-container">
+    <div class="day-header">
+      <span class="day-number">Day 3</span>
+      <span class="day-date">Wednesday, May 14</span>
+      <span class="day-summary">6 events · 13 hrs</span>
+    </div>
+    <div class="timeline">
+      <div class="event-card tier-short">
+        <div class="spine-dot pinned"></div>
+        <div class="event-top">
+          <span class="type-icon" style="background: var(--type-lodging); color: white;">🏨</span>
+          <span class="event-name">Hotel Gracery Shinjuku</span>
+          <span class="pin-badge">PINNED</span>
+          <span class="event-time">07:00 – 08:00</span>
+        </div>
+        <div class="event-meta">
+          <span>Check-out · <span class="mono">Ref: GRC-88421</span></span>
+        </div>
+      </div>
+      <div class="event-card tier-medium">
+        <div class="spine-dot"></div>
+        <div class="event-top">
+          <span class="type-icon" style="background: var(--type-transit); color: white;">🚃</span>
+          <span class="event-name">Shinjuku → Tsukiji</span>
+          <span class="event-time">08:15 – 08:45</span>
+        </div>
+        <div class="event-meta">
+          <span>JR Yamanote Line · 30 min</span>
+        </div>
+      </div>
+      <div class="event-card tier-long">
+        <div class="spine-dot"></div>
+        <div class="event-top">
+          <span class="type-icon" style="background: var(--type-activity); color: white;">🏛</span>
+          <span class="event-name">Tsukiji Outer Market</span>
+          <span class="event-time">09:00 – 11:00</span>
+        </div>
+        <div class="event-meta">
+          <span>4 Chome-16 Tsukiji, Chuo City</span>
+          <span>2 hrs</span>
+        </div>
+      </div>
+      <div class="event-card tier-medium">
+        <div class="spine-dot"></div>
+        <div class="event-top">
+          <span class="type-icon" style="background: var(--type-food); color: white;">🍣</span>
+          <span class="event-name">Sushi Dai</span>
+          <span class="event-time">11:30 – 13:00</span>
+        </div>
+        <div class="event-meta">
+          <span>5 Chome-2-1 Tsukiji, Chuo City</span>
+          <span>1.5 hrs</span>
+        </div>
+      </div>
+      <div class="event-card tier-long">
+        <div class="spine-dot"></div>
+        <div class="event-top">
+          <span class="type-icon" style="background: var(--type-activity); color: white;">⛩</span>
+          <span class="event-name">Senso-ji Temple</span>
+          <span class="event-time">14:00 – 16:30</span>
+        </div>
+        <div class="event-meta">
+          <span>2 Chome-3-1 Asakusa, Taito City</span>
+          <span>2.5 hrs</span>
+        </div>
+      </div>
+      <div class="event-card tier-medium">
+        <div class="spine-dot pinned"></div>
+        <div class="event-top">
+          <span class="type-icon" style="background: var(--type-food); color: white;">🍜</span>
+          <span class="event-name">Ichiran Ramen Shibuya</span>
+          <span class="pin-badge">PINNED</span>
+          <span class="event-time">19:00 – 20:00</span>
+        </div>
+        <div class="event-meta">
+          <span>1 Chome-22-7 Jinnan, Shibuya</span>
+          <span class="mono">Reservation</span>
+        </div>
+      </div>
+      <div class="empty-slot">+ Add event to Day 3</div>
+    </div>
+  </div>
+</section>
+
+<!-- DIRECTION B: Accent Bar -->
+<section id="dir-b" class="section dir-b">
+  <div class="section-header">
+    <span class="section-tag" style="background: var(--brand-light); color: var(--brand-dark);">Direction B</span>
+    <h1 class="section-title">Minimal Accent Bar — Type by Color</h1>
+    <p class="section-desc">Clean cards with a colored left border indicating event type. Time column on the left for vertical scanning. Duration shown as a subtle pill. Most "Linear-like" — scannable and information-dense without feeling heavy.</p>
+  </div>
+  <div class="timeline-container">
+    <div class="day-header">
+      <span class="day-number">Day 3</span>
+      <span class="day-date">Wednesday, May 14</span>
+      <span class="day-summary">6 events · 13 hrs</span>
+    </div>
+    <div class="timeline">
+      <div class="event-card" data-type="lodging">
+        <div class="event-time-col">
+          <div class="event-time-start">07:00</div>
+          <div class="event-time-end">08:00</div>
+        </div>
+        <div class="event-body">
+          <div class="event-name">Hotel Gracery Shinjuku</div>
+          <div class="event-location">Check-out · <span class="mono">GRC-88421</span></div>
+        </div>
+        <div class="event-badges">
+          <span class="duration-pill">1h</span>
+          <span class="pin-indicator" title="Pinned"></span>
+        </div>
+      </div>
+      <div class="event-card" data-type="transit">
+        <div class="event-time-col">
+          <div class="event-time-start">08:15</div>
+          <div class="event-time-end">08:45</div>
+        </div>
+        <div class="event-body">
+          <div class="event-name">Shinjuku → Tsukiji</div>
+          <div class="event-location">JR Yamanote Line</div>
+        </div>
+        <div class="event-badges">
+          <span class="duration-pill">30m</span>
+        </div>
+      </div>
+      <div class="event-card" data-type="activity">
+        <div class="event-time-col">
+          <div class="event-time-start">09:00</div>
+          <div class="event-time-end">11:00</div>
+        </div>
+        <div class="event-body">
+          <div class="event-name">Tsukiji Outer Market</div>
+          <div class="event-location">4 Chome-16 Tsukiji, Chuo City</div>
+        </div>
+        <div class="event-badges">
+          <span class="duration-pill">2h</span>
+        </div>
+      </div>
+      <div class="event-card" data-type="food">
+        <div class="event-time-col">
+          <div class="event-time-start">11:30</div>
+          <div class="event-time-end">13:00</div>
+        </div>
+        <div class="event-body">
+          <div class="event-name">Sushi Dai</div>
+          <div class="event-location">5 Chome-2-1 Tsukiji, Chuo City</div>
+        </div>
+        <div class="event-badges">
+          <span class="duration-pill">1.5h</span>
+        </div>
+      </div>
+      <div class="event-card" data-type="activity">
+        <div class="event-time-col">
+          <div class="event-time-start">14:00</div>
+          <div class="event-time-end">16:30</div>
+        </div>
+        <div class="event-body">
+          <div class="event-name">Senso-ji Temple</div>
+          <div class="event-location">2 Chome-3-1 Asakusa, Taito City</div>
+        </div>
+        <div class="event-badges">
+          <span class="duration-pill">2.5h</span>
+        </div>
+      </div>
+      <div class="event-card" data-type="food">
+        <div class="event-time-col">
+          <div class="event-time-start">19:00</div>
+          <div class="event-time-end">20:00</div>
+        </div>
+        <div class="event-body">
+          <div class="event-name">Ichiran Ramen Shibuya</div>
+          <div class="event-location">1 Chome-22-7 Jinnan, Shibuya</div>
+        </div>
+        <div class="event-badges">
+          <span class="duration-pill">1h</span>
+          <span class="pin-indicator" title="Pinned"></span>
+        </div>
+      </div>
+      <div class="empty-slot">+ Add event to Day 3</div>
+    </div>
+  </div>
+</section>
+
+<!-- DIRECTION C: Fixed Height + Duration Bar -->
+<section id="dir-c" class="section dir-c">
+  <div class="section-header">
+    <span class="section-tag" style="background: var(--surface-secondary); color: var(--text-secondary);">Direction C</span>
+    <h1 class="section-title">Fixed Height Cards + Duration Bar</h1>
+    <p class="section-desc">All cards have the same height for a clean, consistent rhythm. Duration is communicated through a colored bar at the bottom (wider = longer) and a text label. Gap rows show time between events. Most compact and data-focused.</p>
+  </div>
+  <div class="timeline-container">
+    <div class="day-header">
+      <span class="day-number">Day 3</span>
+      <span class="day-date">Wednesday, May 14</span>
+      <span class="day-summary">6 events · 13 hrs</span>
+    </div>
+    <div class="timeline">
+      <div class="event-card" data-type="lodging">
+        <span class="type-dot lodging">L</span>
+        <div class="event-info">
+          <span class="event-name">Hotel Gracery Shinjuku</span>
+          <span class="event-detail">Check-out · <span class="mono">GRC-88421</span> · 📌 Pinned</span>
+        </div>
+        <div class="event-right">
+          <span class="event-time">07:00 – 08:00</span>
+          <span class="event-duration">1 hr</span>
+        </div>
+        <div class="duration-bar" style="width: 8%;"></div>
+      </div>
+      <div class="gap-row">
+        <span class="gap-line"></span>
+        <span>15 min gap</span>
+        <span class="gap-line"></span>
+      </div>
+      <div class="event-card" data-type="transit">
+        <span class="type-dot transit">T</span>
+        <div class="event-info">
+          <span class="event-name">Shinjuku → Tsukiji</span>
+          <span class="event-detail">JR Yamanote Line</span>
+        </div>
+        <div class="event-right">
+          <span class="event-time">08:15 – 08:45</span>
+          <span class="event-duration">30 min</span>
+        </div>
+        <div class="duration-bar" style="width: 4%;"></div>
+      </div>
+      <div class="gap-row">
+        <span class="gap-line"></span>
+        <span>15 min gap</span>
+        <span class="gap-line"></span>
+      </div>
+      <div class="event-card" data-type="activity">
+        <span class="type-dot activity">A</span>
+        <div class="event-info">
+          <span class="event-name">Tsukiji Outer Market</span>
+          <span class="event-detail">4 Chome-16 Tsukiji, Chuo City</span>
+        </div>
+        <div class="event-right">
+          <span class="event-time">09:00 – 11:00</span>
+          <span class="event-duration">2 hrs</span>
+        </div>
+        <div class="duration-bar" style="width: 15%;"></div>
+      </div>
+      <div class="gap-row">
+        <span class="gap-line"></span>
+        <span>30 min gap</span>
+        <span class="gap-line"></span>
+      </div>
+      <div class="event-card" data-type="food">
+        <span class="type-dot food">F</span>
+        <div class="event-info">
+          <span class="event-name">Sushi Dai</span>
+          <span class="event-detail">5 Chome-2-1 Tsukiji, Chuo City</span>
+        </div>
+        <div class="event-right">
+          <span class="event-time">11:30 – 13:00</span>
+          <span class="event-duration">1.5 hrs</span>
+        </div>
+        <div class="duration-bar" style="width: 12%;"></div>
+      </div>
+      <div class="gap-row" style="color: var(--signal-warn);">
+        <span class="gap-line" style="background: var(--signal-warn);"></span>
+        <span>⚠ 1 hr gap — Tsukiji to Asakusa</span>
+        <span class="gap-line" style="background: var(--signal-warn);"></span>
+      </div>
+      <div class="event-card" data-type="activity">
+        <span class="type-dot activity">A</span>
+        <div class="event-info">
+          <span class="event-name">Senso-ji Temple</span>
+          <span class="event-detail">2 Chome-3-1 Asakusa, Taito City</span>
+        </div>
+        <div class="event-right">
+          <span class="event-time">14:00 – 16:30</span>
+          <span class="event-duration">2.5 hrs</span>
+        </div>
+        <div class="duration-bar" style="width: 19%;"></div>
+      </div>
+      <div class="gap-row">
+        <span class="gap-line"></span>
+        <span>2.5 hr gap</span>
+        <span class="gap-line"></span>
+      </div>
+      <div class="event-card" data-type="food">
+        <span class="type-dot food">F</span>
+        <div class="event-info">
+          <span class="event-name">Ichiran Ramen Shibuya</span>
+          <span class="event-detail">1 Chome-22-7 Jinnan, Shibuya · 📌 Pinned</span>
+        </div>
+        <div class="event-right">
+          <span class="event-time">19:00 – 20:00</span>
+          <span class="event-duration">1 hr</span>
+        </div>
+        <div class="duration-bar" style="width: 8%;"></div>
+      </div>
+      <div class="empty-slot">+ Add event to Day 3</div>
+    </div>
+  </div>
+</section>
+
+<!-- DIRECTION D: Notion Blocks -->
+<section id="dir-d" class="section dir-d">
+  <div class="section-header">
+    <span class="section-tag" style="background: #f1f5f9; color: var(--text-secondary);">Direction D</span>
+    <h1 class="section-title">Notion-style Blocks — Spacious & Calm</h1>
+    <p class="section-desc">Borderless cards with type tags and generous whitespace. Tiered height based on duration. Hover reveals borders. Most spacious, most calm. Events feel like editable blocks in a document.</p>
+  </div>
+  <div class="timeline-container">
+    <div class="day-header">
+      <span class="day-number">Day 3</span>
+      <span class="day-date">Wednesday, May 14</span>
+      <span class="day-summary">6 events · 13 hrs</span>
+    </div>
+    <div class="timeline">
+      <div class="event-card tier-short">
+        <div class="event-header">
+          <span class="type-tag lodging">Lodging</span>
+          <span class="event-name">Hotel Gracery Shinjuku</span>
+          <span class="pinned-lock">📌 Pinned</span>
+        </div>
+        <div class="event-details">
+          <span>07:00 – 08:00</span>
+          <span>Check-out</span>
+          <span class="mono">Ref: GRC-88421</span>
+        </div>
+      </div>
+      <div class="event-card tier-short">
+        <div class="event-header">
+          <span class="type-tag transit">Transit</span>
+          <span class="event-name">Shinjuku → Tsukiji</span>
+        </div>
+        <div class="event-details">
+          <span>08:15 – 08:45</span>
+          <span>JR Yamanote Line · 30 min</span>
+        </div>
+      </div>
+      <div class="event-card tier-long">
+        <div class="event-header">
+          <span class="type-tag activity">Activity</span>
+          <span class="event-name">Tsukiji Outer Market</span>
+        </div>
+        <div class="event-details">
+          <span>09:00 – 11:00 · 2 hrs</span>
+          <span>4 Chome-16 Tsukiji, Chuo City</span>
+        </div>
+      </div>
+      <div class="event-card">
+        <div class="event-header">
+          <span class="type-tag food">Food</span>
+          <span class="event-name">Sushi Dai</span>
+        </div>
+        <div class="event-details">
+          <span>11:30 – 13:00 · 1.5 hrs</span>
+          <span>5 Chome-2-1 Tsukiji, Chuo City</span>
+        </div>
+      </div>
+      <div class="event-card tier-long">
+        <div class="event-header">
+          <span class="type-tag activity">Activity</span>
+          <span class="event-name">Senso-ji Temple</span>
+        </div>
+        <div class="event-details">
+          <span>14:00 – 16:30 · 2.5 hrs</span>
+          <span>2 Chome-3-1 Asakusa, Taito City</span>
+        </div>
+      </div>
+      <div class="event-card tier-short">
+        <div class="event-header">
+          <span class="type-tag food">Food</span>
+          <span class="event-name">Ichiran Ramen Shibuya</span>
+          <span class="pinned-lock">📌 Pinned</span>
+        </div>
+        <div class="event-details">
+          <span>19:00 – 20:00 · 1 hr</span>
+          <span>1 Chome-22-7 Jinnan, Shibuya</span>
+          <span class="mono">Reservation</span>
+        </div>
+      </div>
+      <div class="empty-slot">+ Add event to Day 3</div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARE -->
+<section id="compare" class="section">
+  <div class="section-header" style="max-width: 1200px;">
+    <span class="section-tag" style="background: var(--brand-light); color: var(--brand-dark);">Comparison</span>
+    <h1 class="section-title">Side-by-Side Comparison</h1>
+    <p class="section-desc">Key trade-offs between the four directions.</p>
+  </div>
+  <div class="compare-grid">
+    <div class="compare-card">
+      <div class="compare-label">
+        <span>Card Style</span>
+      </div>
+      <div class="compare-body" style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
+        <strong style="color: var(--text-primary);">A: Swiss Bordered</strong> — Bold, distinctive, most "brand." Hard shadows add depth. Risk: can feel heavy with many events.<br><br>
+        <strong style="color: var(--text-primary);">B: Accent Bar</strong> — Light, scannable, type-color prominent. Risk: less distinctive, could feel generic.<br><br>
+        <strong style="color: var(--text-primary);">C: Fixed Height</strong> — Consistent rhythm, data-dense. Duration bar adds visual interest. Risk: all events look same size — less "shape of the day."<br><br>
+        <strong style="color: var(--text-primary);">D: Notion Blocks</strong> — Spacious, calm, hover-reveals. Risk: feels less like a specialized tool, more like a generic block editor.
+      </div>
+    </div>
+    <div class="compare-card">
+      <div class="compare-label">
+        <span>Duration Representation</span>
+      </div>
+      <div class="compare-body" style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
+        <strong style="color: var(--text-primary);">A: Tiered heights</strong> — Short/medium/long card padding. Subtle, natural. "Noticeable difference" without strict proportionality.<br><br>
+        <strong style="color: var(--text-primary);">B: Duration pill</strong> — Text badge ("2h"). Explicit, no ambiguity. Duration is read, not felt.<br><br>
+        <strong style="color: var(--text-primary);">C: Duration bar</strong> — Colored bar at card bottom. Visual + text. Adds scannable signal without changing card size.<br><br>
+        <strong style="color: var(--text-primary);">D: Tiered heights + text</strong> — Combines both. Most information, most spacious. Duration is both felt (height) and read (text).
+      </div>
+    </div>
+    <div class="compare-card">
+      <div class="compare-label">
+        <span>Type Identification</span>
+      </div>
+      <div class="compare-body" style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
+        <strong style="color: var(--text-primary);">A: Icon badge</strong> — Colored square with emoji/icon. Strong visual anchor.<br><br>
+        <strong style="color: var(--text-primary);">B: Left border color</strong> — Fastest scanning. Color = type. But requires learning the mapping.<br><br>
+        <strong style="color: var(--text-primary);">C: Letter dot</strong> — Compact colored dot with letter (A/F/L/T). Space-efficient, explicit.<br><br>
+        <strong style="color: var(--text-primary);">D: Type tag</strong> — Text label with colored background ("Food", "Transit"). Most explicit, no learning curve. Takes more space.
+      </div>
+    </div>
+    <div class="compare-card">
+      <div class="compare-label">
+        <span>Overall Feel</span>
+      </div>
+      <div class="compare-body" style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
+        <strong style="color: var(--text-primary);">A:</strong> Field guide, authoritative, distinctive. The "portfolio piece" look.<br><br>
+        <strong style="color: var(--text-primary);">B:</strong> Professional, clean, familiar. Would fit in any SaaS product.<br><br>
+        <strong style="color: var(--text-primary);">C:</strong> Data-focused, efficient, compact. For users who want density.<br><br>
+        <strong style="color: var(--text-primary);">D:</strong> Calm, spacious, modern. The "I just want to plan my trip" feel.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SIGNALS -->
+<section id="signals" class="section">
+  <div class="section-header">
+    <span class="section-tag" style="background: #fef2f2; color: var(--signal-risk);">Signal System</span>
+    <h1 class="section-title">Signal System Demo</h1>
+    <p class="section-desc">How logistical warnings and messages appear — travel-aware voice, dual feedback (visual + message). These work identically across all four directions.</p>
+  </div>
+  <div class="timeline-container">
+    <div class="signal-demo warn">
+      <span class="signal-icon">⚠️</span>
+      <div>
+        <strong style="font-size: 13px;">Day 3 is looking packed</strong>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">6 events across 13 hours with only 15-minute gaps between some stops. Might want to move the shrine visit to Day 4, which has more breathing room.</p>
+      </div>
+    </div>
+    <br>
+    <div class="signal-demo">
+      <span class="signal-icon">🏃</span>
+      <div>
+        <strong style="font-size: 13px;">That's a sprint between Tsukiji and Asakusa</strong>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Sushi Dai ends at 13:00 and Senso-ji starts at 14:00 — but they're 45 minutes apart by train. You'd need to leave by 13:10 to make it comfortably.</p>
+      </div>
+    </div>
+    <br>
+    <div style="max-width: 800px; margin: 0 auto; padding: 20px; background: #f0fdf4; border-left: 4px solid var(--signal-safe); border-radius: 0 6px 6px 0; display: flex; align-items: flex-start; gap: 12px; font-size: 13px;">
+      <span style="font-size: 16px;">✅</span>
+      <div>
+        <strong>Day 4 looks good</strong>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">4 events with comfortable spacing. All connections are feasible. You've got a 2-hour free window in the afternoon if you want to add something.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo(0, 0);
+}
+</script>
+
+</body>
+</html>
