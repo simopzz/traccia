@@ -3,13 +3,33 @@
 //   sqlc v1.30.0
 // source: trips.sql
 
-package repository
+package sqlcgen
 
 import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const countEventsByTripAndDateRange = `-- name: CountEventsByTripAndDateRange :one
+SELECT COUNT(*)::int AS event_count
+FROM events
+WHERE trip_id = $1
+  AND (event_date < $2 OR event_date > $3)
+`
+
+type CountEventsByTripAndDateRangeParams struct {
+	TripID      int32
+	EventDate   pgtype.Date
+	EventDate_2 pgtype.Date
+}
+
+func (q *Queries) CountEventsByTripAndDateRange(ctx context.Context, arg CountEventsByTripAndDateRangeParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countEventsByTripAndDateRange, arg.TripID, arg.EventDate, arg.EventDate_2)
+	var event_count int32
+	err := row.Scan(&event_count)
+	return event_count, err
+}
 
 const createTrip = `-- name: CreateTrip :one
 INSERT INTO trips (name, destination, start_date, end_date, user_id)
@@ -19,9 +39,9 @@ RETURNING id, user_id, name, destination, start_date, end_date, created_at, upda
 
 type CreateTripParams struct {
 	Name        string
-	Destination string
-	StartDate   pgtype.Timestamptz
-	EndDate     pgtype.Timestamptz
+	Destination pgtype.Text
+	StartDate   pgtype.Date
+	EndDate     pgtype.Date
 	UserID      pgtype.UUID
 }
 
@@ -79,7 +99,7 @@ func (q *Queries) GetTripByID(ctx context.Context, id int32) (Trip, error) {
 const listTrips = `-- name: ListTrips :many
 SELECT id, user_id, name, destination, start_date, end_date, created_at, updated_at FROM trips
 WHERE (user_id = $1 OR $1 IS NULL)
-ORDER BY start_date DESC NULLS LAST, created_at DESC
+ORDER BY start_date DESC, created_at DESC
 `
 
 func (q *Queries) ListTrips(ctx context.Context, userID pgtype.UUID) ([]Trip, error) {
@@ -121,9 +141,9 @@ RETURNING id, user_id, name, destination, start_date, end_date, created_at, upda
 type UpdateTripParams struct {
 	ID          int32
 	Name        string
-	Destination string
-	StartDate   pgtype.Timestamptz
-	EndDate     pgtype.Timestamptz
+	Destination pgtype.Text
+	StartDate   pgtype.Date
+	EndDate     pgtype.Date
 }
 
 func (q *Queries) UpdateTrip(ctx context.Context, arg UpdateTripParams) (Trip, error) {

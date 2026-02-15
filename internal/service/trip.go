@@ -27,8 +27,14 @@ func (s *TripService) Create(ctx context.Context, input *CreateTripInput) (*doma
 	if input.Name == "" {
 		return nil, fmt.Errorf("%w: name is required", domain.ErrInvalidInput)
 	}
-	if input.Destination == "" {
-		return nil, fmt.Errorf("%w: destination is required", domain.ErrInvalidInput)
+	if input.StartDate.IsZero() {
+		return nil, fmt.Errorf("%w: start date is required", domain.ErrInvalidInput)
+	}
+	if input.EndDate.IsZero() {
+		return nil, fmt.Errorf("%w: end date is required", domain.ErrInvalidInput)
+	}
+	if input.EndDate.Before(input.StartDate) {
+		return nil, fmt.Errorf("%w: end date must be on or after start date", domain.ErrInvalidInput)
 	}
 
 	trip := &domain.Trip{
@@ -76,6 +82,18 @@ func (s *TripService) Update(ctx context.Context, id int, input UpdateTripInput)
 		}
 		return trip
 	})
+}
+
+// ValidateDateRangeShrink checks if shrinking a trip's date range would exclude days with events.
+func (s *TripService) ValidateDateRangeShrink(ctx context.Context, tripID int, newStart, newEnd time.Time) error {
+	count, err := s.repo.CountEventsByTripAndDateRange(ctx, tripID, newStart, newEnd)
+	if err != nil {
+		return fmt.Errorf("checking events outside date range: %w", err)
+	}
+	if count > 0 {
+		return fmt.Errorf("%w: cannot shorten trip: %d event(s) exist outside the new date range. Remove or move them first", domain.ErrDateRangeConflict, count)
+	}
+	return nil
 }
 
 func (s *TripService) Delete(ctx context.Context, id int) error {

@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@source "../../internal/**/*.templ";
+
+@theme {
+  /* Brand teal */
+  --color-brand: #008080;
+  --color-brand-light: #00a0a0;
+  --color-brand-dark: #006060;
+
+  /* Signal colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #f43f5e;
+
+  /* Font */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* Tabular numerals for time displays */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

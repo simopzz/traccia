@@ -29,6 +29,7 @@ type CreateEventInput struct {
 	Latitude  *float64
 	Longitude *float64
 	Location  string
+	Notes     string
 	TripID    int
 	Pinned    bool
 }
@@ -47,6 +48,7 @@ func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*do
 
 	event := &domain.Event{
 		TripID:    input.TripID,
+		EventDate: input.StartTime.Truncate(24 * time.Hour),
 		Title:     input.Title,
 		Category:  input.Category,
 		Location:  input.Location,
@@ -55,6 +57,7 @@ func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*do
 		StartTime: input.StartTime,
 		EndTime:   input.EndTime,
 		Pinned:    input.Pinned,
+		Notes:     input.Notes,
 	}
 
 	if err := s.repo.Create(ctx, event); err != nil {
@@ -72,6 +75,14 @@ func (s *EventService) ListByTrip(ctx context.Context, tripID int) ([]domain.Eve
 	return s.repo.ListByTrip(ctx, tripID)
 }
 
+func (s *EventService) ListByTripAndDate(ctx context.Context, tripID int, date time.Time) ([]domain.Event, error) {
+	return s.repo.ListByTripAndDate(ctx, tripID, date)
+}
+
+func (s *EventService) CountByTrip(ctx context.Context, tripID int) (int, error) {
+	return s.repo.CountByTrip(ctx, tripID)
+}
+
 type UpdateEventInput struct {
 	Title     *string
 	Category  *domain.EventCategory
@@ -82,9 +93,10 @@ type UpdateEventInput struct {
 	EndTime   *time.Time
 	Pinned    *bool
 	Position  *int
+	Notes     *string
 }
 
-func (s *EventService) Update(ctx context.Context, id int, input UpdateEventInput) (*domain.Event, error) {
+func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInput) (*domain.Event, error) {
 	return s.repo.Update(ctx, id, func(event *domain.Event) *domain.Event {
 		if input.Title != nil {
 			event.Title = *input.Title
@@ -103,6 +115,7 @@ func (s *EventService) Update(ctx context.Context, id int, input UpdateEventInpu
 		}
 		if input.StartTime != nil {
 			event.StartTime = *input.StartTime
+			event.EventDate = input.StartTime.Truncate(24 * time.Hour)
 		}
 		if input.EndTime != nil {
 			event.EndTime = *input.EndTime
@@ -112,6 +125,9 @@ func (s *EventService) Update(ctx context.Context, id int, input UpdateEventInpu
 		}
 		if input.Position != nil {
 			event.Position = *input.Position
+		}
+		if input.Notes != nil {
+			event.Notes = *input.Notes
 		}
 		return event
 	})

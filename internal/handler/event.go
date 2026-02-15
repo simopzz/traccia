@@ -112,7 +112,7 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	endTime := parseDateTime(r.FormValue("end_time"))
 	pinned := r.FormValue("pinned") == "true"
 
-	input := service.UpdateEventInput{
+	input := &service.UpdateEventInput{
 		Title:     &title,
 		Category:  &category,
 		Location:  &location,

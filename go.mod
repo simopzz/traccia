@@ -3,9 +3,9 @@ module github.com/simopzz/traccia
 go 1.25.4
 
 require (
+	github.com/Oudwins/tailwind-merge-go v0.2.1
 	github.com/a-h/templ v0.3.977
 	github.com/go-chi/chi/v5 v5.2.4
-	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.8.0
 )
 

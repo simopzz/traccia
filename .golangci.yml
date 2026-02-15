@@ -36,9 +36,15 @@ issues:
     - path: _test\.go
       linters:
         - errcheck
+        - govet
+        - gocritic
     - path: \.gen\.go
       linters:
         - all
     - path: _templ\.go
       linters:
         - all
+    - path: internal/components
+      linters:
+        - gocritic
+        - govet

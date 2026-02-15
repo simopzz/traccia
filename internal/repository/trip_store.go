@@ -10,26 +10,27 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/simopzz/traccia/internal/domain"
+	"github.com/simopzz/traccia/internal/repository/sqlcgen"
 )
 
 var _ domain.TripRepository = (*TripStore)(nil)
 
 type TripStore struct {
-	queries *Queries
+	queries *sqlcgen.Queries
 }
 
 func NewTripStore(db *pgxpool.Pool) *TripStore {
 	return &TripStore{
-		queries: New(db),
+		queries: sqlcgen.New(db),
 	}
 }
 
 func (s *TripStore) Create(ctx context.Context, trip *domain.Trip) error {
-	row, err := s.queries.CreateTrip(ctx, CreateTripParams{
+	row, err := s.queries.CreateTrip(ctx, sqlcgen.CreateTripParams{
 		Name:        trip.Name,
-		Destination: trip.Destination,
-		StartDate:   toPgTimestamptz(trip.StartDate),
-		EndDate:     toPgTimestamptz(trip.EndDate),
+		Destination: toPgText(trip.Destination),
+		StartDate:   toPgDate(trip.StartDate),
+		EndDate:     toPgDate(trip.EndDate),
 		UserID:      pgtype.UUID{},
 	})
 	if err != nil {
@@ -79,12 +80,12 @@ func (s *TripStore) Update(ctx context.Context, id int, updater func(*domain.Tri
 
 	updated := updater(trip)
 
-	row, err := s.queries.UpdateTrip(ctx, UpdateTripParams{
+	row, err := s.queries.UpdateTrip(ctx, sqlcgen.UpdateTripParams{
 		ID:          int32(id),
 		Name:        updated.Name,
-		Destination: updated.Destination,
-		StartDate:   toPgTimestamptz(updated.StartDate),
-		EndDate:     toPgTimestamptz(updated.EndDate),
+		Destination: toPgText(updated.Destination),
+		StartDate:   toPgDate(updated.StartDate),
+		EndDate:     toPgDate(updated.EndDate),
 	})
 	if err != nil {
 		return nil, err
@@ -98,16 +99,35 @@ func (s *TripStore) Delete(ctx context.Context, id int) error {
 	return s.queries.DeleteTrip(ctx, int32(id))
 }
 
-func tripRowToDomain(row *Trip) domain.Trip {
+func (s *TripStore) CountEventsByTripAndDateRange(ctx context.Context, tripID int, newStart, newEnd time.Time) (int, error) {
+	count, err := s.queries.CountEventsByTripAndDateRange(ctx, sqlcgen.CountEventsByTripAndDateRangeParams{
+		TripID:      int32(tripID),
+		EventDate:   toPgDate(newStart),
+		EventDate_2: toPgDate(newEnd),
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
+func tripRowToDomain(row *sqlcgen.Trip) domain.Trip {
 	return domain.Trip{
 		ID:          int(row.ID),
 		Name:        row.Name,
-		Destination: row.Destination,
+		Destination: row.Destination.String,
 		StartDate:   row.StartDate.Time,
 		EndDate:     row.EndDate.Time,
 		CreatedAt:   row.CreatedAt.Time,
 		UpdatedAt:   row.UpdatedAt.Time,
 	}
+}
+
+func toPgDate(t time.Time) pgtype.Date {
+	if t.IsZero() {
+		return pgtype.Date{}
+	}
+	return pgtype.Date{Time: t, Valid: true}
 }
 
 func toPgTimestamptz(t time.Time) pgtype.Timestamptz {

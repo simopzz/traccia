@@ -3,38 +3,44 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/simopzz/traccia/internal/domain"
+	"github.com/simopzz/traccia/internal/repository/sqlcgen"
 )
 
 var _ domain.EventRepository = (*EventStore)(nil)
 
 type EventStore struct {
-	queries *Queries
+	queries *sqlcgen.Queries
 }
 
 func NewEventStore(db *pgxpool.Pool) *EventStore {
 	return &EventStore{
-		queries: New(db),
+		queries: sqlcgen.New(db),
 	}
 }
 
 func (s *EventStore) Create(ctx context.Context, event *domain.Event) error {
-	maxPos, err := s.queries.GetMaxPositionByTrip(ctx, int32(event.TripID))
+	maxPos, err := s.queries.GetMaxPositionByTripAndDate(ctx, sqlcgen.GetMaxPositionByTripAndDateParams{
+		TripID:    int32(event.TripID),
+		EventDate: toPgDate(event.EventDate),
+	})
 	if err != nil {
 		return err
 	}
-	position := maxPos + 1
+	position := maxPos + 1000
 	if event.Position > 0 {
 		position = int32(event.Position)
 	}
 
-	row, err := s.queries.CreateEvent(ctx, CreateEventParams{
+	row, err := s.queries.CreateEvent(ctx, sqlcgen.CreateEventParams{
 		TripID:    int32(event.TripID),
+		EventDate: toPgDate(event.EventDate),
 		Title:     event.Title,
 		Category:  string(event.Category),
 		Location:  toPgText(event.Location),
@@ -44,6 +50,7 @@ func (s *EventStore) Create(ctx context.Context, event *domain.Event) error {
 		EndTime:   toPgTimestamptz(event.EndTime),
 		Pinned:    toPgBool(event.Pinned),
 		Position:  position,
+		Notes:     toPgText(event.Notes),
 	})
 	if err != nil {
 		return err
@@ -77,6 +84,22 @@ func (s *EventStore) ListByTrip(ctx context.Context, tripID int) ([]domain.Event
 	return events, nil
 }
 
+func (s *EventStore) ListByTripAndDate(ctx context.Context, tripID int, date time.Time) ([]domain.Event, error) {
+	rows, err := s.queries.ListEventsByTripAndDate(ctx, sqlcgen.ListEventsByTripAndDateParams{
+		TripID:    int32(tripID),
+		EventDate: toPgDate(date),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	events := make([]domain.Event, len(rows))
+	for i := range rows {
+		events[i] = eventRowToDomain(&rows[i])
+	}
+	return events, nil
+}
+
 func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Event) *domain.Event) (*domain.Event, error) {
 	event, err := s.GetByID(ctx, id)
 	if err != nil {
@@ -85,7 +108,7 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 
 	updated := updater(event)
 
-	row, err := s.queries.UpdateEvent(ctx, UpdateEventParams{
+	row, err := s.queries.UpdateEvent(ctx, sqlcgen.UpdateEventParams{
 		ID:        int32(id),
 		Title:     updated.Title,
 		Category:  string(updated.Category),
@@ -96,6 +119,8 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 		EndTime:   toPgTimestamptz(updated.EndTime),
 		Pinned:    toPgBool(updated.Pinned),
 		Position:  int32(updated.Position),
+		EventDate: toPgDate(updated.EventDate),
+		Notes:     toPgText(updated.Notes),
 	})
 	if err != nil {
 		return nil, err
@@ -121,7 +146,15 @@ func (s *EventStore) GetLastEventByTrip(ctx context.Context, tripID int) (*domai
 	return &event, nil
 }
 
-func eventRowToDomain(row *Event) domain.Event {
+func (s *EventStore) CountByTrip(ctx context.Context, tripID int) (int, error) {
+	count, err := s.queries.CountEventsByTrip(ctx, int32(tripID))
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
+func eventRowToDomain(row *sqlcgen.Event) domain.Event {
 	var lat, lng *float64
 	if row.Latitude.Valid {
 		lat = &row.Latitude.Float64
@@ -133,6 +166,7 @@ func eventRowToDomain(row *Event) domain.Event {
 	return domain.Event{
 		ID:        int(row.ID),
 		TripID:    int(row.TripID),
+		EventDate: row.EventDate.Time,
 		Title:     row.Title,
 		Category:  domain.EventCategory(row.Category),
 		Location:  row.Location.String,
@@ -142,6 +176,7 @@ func eventRowToDomain(row *Event) domain.Event {
 		EndTime:   row.EndTime.Time,
 		Pinned:    row.Pinned.Bool,
 		Position:  int(row.Position),
+		Notes:     row.Notes.String,
 		CreatedAt: row.CreatedAt.Time,
 		UpdatedAt: row.UpdatedAt.Time,
 	}

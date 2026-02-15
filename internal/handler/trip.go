@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
@@ -36,7 +37,7 @@ func (h *TripHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TripHandler) NewPage(w http.ResponseWriter, r *http.Request) {
-	templ.Handler(TripNewPage()).ServeHTTP(w, r)
+	templ.Handler(TripNewPage(nil)).ServeHTTP(w, r)
 }
 
 func (h *TripHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +56,7 @@ func (h *TripHandler) Create(w http.ResponseWriter, r *http.Request) {
 	trip, err := h.tripService.Create(r.Context(), input)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			templ.Handler(TripNewPage(newFormErrors(err))).ServeHTTP(w, r)
 			return
 		}
 		http.Error(w, "Failed to create trip", http.StatusInternalServerError)
@@ -63,6 +64,13 @@ func (h *TripHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/trips/"+strconv.Itoa(trip.ID), http.StatusSeeOther)
+}
+
+// TimelineDayData holds a day's date, day number, and events for timeline rendering.
+type TimelineDayData struct {
+	Date      time.Time
+	Events    []domain.Event
+	DayNumber int
 }
 
 func (h *TripHandler) Detail(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +97,10 @@ func (h *TripHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	templ.Handler(TripDetailPage(trip, events)).ServeHTTP(w, r)
+	// Build day-by-day timeline from trip date range
+	days := buildTimelineDays(trip, events)
+
+	templ.Handler(TripDetailPage(trip, days)).ServeHTTP(w, r)
 }
 
 func (h *TripHandler) EditPage(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +121,7 @@ func (h *TripHandler) EditPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	templ.Handler(TripEditPage(trip)).ServeHTTP(w, r)
+	templ.Handler(TripEditPage(trip, nil)).ServeHTTP(w, r)
 }
 
 func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -130,6 +141,21 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 	destination := r.FormValue("destination")
 	startDate := parseDate(r.FormValue("start_date"))
 	endDate := parseDate(r.FormValue("end_date"))
+
+	// Validate date range shrink before updating
+	if shrinkErr := h.tripService.ValidateDateRangeShrink(r.Context(), id, startDate, endDate); shrinkErr != nil {
+		if errors.Is(shrinkErr, domain.ErrDateRangeConflict) {
+			trip, getErr := h.tripService.GetByID(r.Context(), id)
+			if getErr != nil {
+				http.Error(w, "Failed to load trip", http.StatusInternalServerError)
+				return
+			}
+			templ.Handler(TripEditPage(trip, newFormErrors(shrinkErr))).ServeHTTP(w, r)
+			return
+		}
+		http.Error(w, "Failed to validate date range", http.StatusInternalServerError)
+		return
+	}
 
 	input := service.UpdateTripInput{
 		Name:        &name,
@@ -168,5 +194,37 @@ func (h *TripHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// buildTimelineDays generates a slice of TimelineDayData from trip's date range, distributing events by date.
+func buildTimelineDays(trip *domain.Trip, events []domain.Event) []TimelineDayData {
+	// Build event lookup by date
+	eventsByDate := make(map[string][]domain.Event)
+	for i := range events {
+		key := events[i].EventDate.Format("2006-01-02")
+		eventsByDate[key] = append(eventsByDate[key], events[i])
+	}
+
+	var days []TimelineDayData
+	dayNum := 1
+	for d := trip.StartDate; !d.After(trip.EndDate); d = d.AddDate(0, 0, 1) {
+		key := d.Format("2006-01-02")
+		days = append(days, TimelineDayData{
+			Date:      d,
+			DayNumber: dayNum,
+			Events:    eventsByDate[key],
+		})
+		dayNum++
+	}
+	return days
+}
+
+// FormErrors holds form validation error messages.
+type FormErrors struct {
+	General string
+}
+
+func newFormErrors(err error) *FormErrors {
+	return &FormErrors{General: err.Error()}
 }

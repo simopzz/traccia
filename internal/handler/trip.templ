@@ -7,14 +7,25 @@ import (
 
 templ TripListPage(trips []domain.Trip) {
 	@Layout("Trips") {
-		<h1>My Trips</h1>
-		<div style="margin-bottom: 1.5rem;">
-			<a href="/trips/new" class="btn">New Trip</a>
+		<div class="flex items-center justify-between mb-6">
+			<h1 class="text-2xl font-bold">My Trips</h1>
+			<a
+				href="/trips/new"
+				class="inline-flex items-center px-4 py-2 bg-brand text-white rounded-md font-medium hover:bg-brand-dark transition-colors"
+			>
+				Create Trip
+			</a>
 		</div>
-		<div id="trip-list">
+		<div id="trip-list" class="space-y-4">
 			if len(trips) == 0 {
-				<div class="empty-state">
-					<p>No trips yet. Create your first trip to get started!</p>
+				<div class="text-center py-16 text-slate-500">
+					<p class="text-lg mb-4">No trips yet</p>
+					<a
+						href="/trips/new"
+						class="inline-flex items-center px-6 py-3 bg-brand text-white rounded-md font-medium hover:bg-brand-dark transition-colors"
+					>
+						Plan your first trip
+					</a>
 				</div>
 			} else {
 				for _, trip := range trips {
@@ -26,124 +37,300 @@ templ TripListPage(trips []domain.Trip) {
 }
 
 templ TripCard(trip domain.Trip) {
-	<div class="card" id={ fmt.Sprintf("trip-%d", trip.ID) }>
-		<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) }>
-			<div class="card-title">{ trip.Name }</div>
+	<div
+		class="bg-white border border-slate-200 rounded-lg p-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] hover:shadow-[2px_2px_0px_0px_rgba(0,128,128,0.15)] transition-shadow"
+		id={ fmt.Sprintf("trip-%d", trip.ID) }
+	>
+		<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) } class="block no-underline">
+			<div class="font-semibold text-lg text-slate-900">{ trip.Name }</div>
+			if trip.Destination != "" {
+				<div class="text-sm text-slate-500 mt-1">{ trip.Destination }</div>
+			}
+			if !trip.StartDate.IsZero() {
+				<div class="text-sm text-slate-400 mt-1">
+					{ trip.StartDate.Format("Jan 2, 2006") }
+					if !trip.EndDate.IsZero() {
+						<span> — </span>
+						{ trip.EndDate.Format("Jan 2, 2006") }
+					}
+				</div>
+			}
 		</a>
-		<div class="card-meta">{ trip.Destination }</div>
-		if !trip.StartDate.IsZero() {
-			<div class="card-meta">
-				{ trip.StartDate.Format("Jan 2, 2006") }
-				if !trip.EndDate.IsZero() {
-					- { trip.EndDate.Format("Jan 2, 2006") }
-				}
-			</div>
-		}
-		<div class="actions">
-			<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d/edit", trip.ID)) } class="btn btn-secondary">Edit</a>
-			<button
-				class="btn btn-danger"
-				hx-delete={ fmt.Sprintf("/trips/%d", trip.ID) }
-				hx-target={ fmt.Sprintf("#trip-%d", trip.ID) }
-				hx-swap="outerHTML"
-				hx-confirm="Delete this trip?"
-			>
-				Delete
-			</button>
-		</div>
 	</div>
 }
 
-templ TripNewPage() {
+templ TripNewPage(formErrors *FormErrors) {
 	@Layout("New Trip") {
-		<h1>New Trip</h1>
-		<div class="card">
+		<div class="mb-6">
+			<nav class="text-sm text-slate-500">
+				<a href="/" class="hover:text-brand">Trips</a>
+				<span class="mx-2">›</span>
+				<span>New Trip</span>
+			</nav>
+		</div>
+		<h1 class="text-2xl font-bold mb-6">New Trip</h1>
+		<div class="bg-white border border-slate-200 rounded-lg p-6 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)]">
+			if formErrors != nil && formErrors.General != "" {
+				<div class="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-md text-rose-700 text-sm">
+					{ formErrors.General }
+				</div>
+			}
 			<form method="POST" action="/trips">
-				<div class="form-group">
-					<label for="name">Trip Name</label>
-					<input type="text" id="name" name="name" required/>
+				<div class="mb-4">
+					<label for="name" class="block text-sm font-medium text-slate-700 mb-1">Trip Name</label>
+					<input
+						type="text"
+						id="name"
+						name="name"
+						required
+						class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
+					/>
 				</div>
-				<div class="form-group">
-					<label for="destination">Destination</label>
-					<input type="text" id="destination" name="destination" required/>
+				<div class="mb-4">
+					<label for="destination" class="block text-sm font-medium text-slate-700 mb-1">Destination</label>
+					<input
+						type="text"
+						id="destination"
+						name="destination"
+						placeholder="Optional"
+						class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
+					/>
 				</div>
-				<div class="form-row">
-					<div class="form-group">
-						<label for="start_date">Start Date</label>
-						<input type="date" id="start_date" name="start_date"/>
+				<div class="grid grid-cols-2 gap-4 mb-6">
+					<div>
+						<label for="start_date" class="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+						<input
+							type="date"
+							id="start_date"
+							name="start_date"
+							required
+							class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
+						/>
 					</div>
-					<div class="form-group">
-						<label for="end_date">End Date</label>
-						<input type="date" id="end_date" name="end_date"/>
+					<div>
+						<label for="end_date" class="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+						<input
+							type="date"
+							id="end_date"
+							name="end_date"
+							required
+							class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
+						/>
 					</div>
 				</div>
-				<button type="submit" class="btn">Create Trip</button>
-				<a href="/" class="btn btn-secondary" style="margin-left: 0.5rem;">Cancel</a>
+				<div class="flex gap-3">
+					<button
+						type="submit"
+						class="px-4 py-2 bg-brand text-white rounded-md font-medium hover:bg-brand-dark transition-colors"
+					>
+						Create Trip
+					</button>
+					<a
+						href="/"
+						class="px-4 py-2 text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+					>
+						Cancel
+					</a>
+				</div>
 			</form>
 		</div>
 	}
 }
 
-templ TripEditPage(trip *domain.Trip) {
+templ TripEditPage(trip *domain.Trip, formErrors *FormErrors) {
 	@Layout("Edit Trip") {
-		<h1>Edit Trip</h1>
-		<div class="card">
+		<div class="mb-6">
+			<nav class="text-sm text-slate-500">
+				<a href="/" class="hover:text-brand">Trips</a>
+				<span class="mx-2">›</span>
+				<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) } class="hover:text-brand">{ trip.Name }</a>
+				<span class="mx-2">›</span>
+				<span>Edit</span>
+			</nav>
+		</div>
+		<h1 class="text-2xl font-bold mb-6">Edit Trip</h1>
+		<div class="bg-white border border-slate-200 rounded-lg p-6 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)]">
+			if formErrors != nil && formErrors.General != "" {
+				<div class="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-md text-rose-700 text-sm">
+					{ formErrors.General }
+				</div>
+			}
 			<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) }>
 				<input type="hidden" name="_method" value="PUT"/>
-				<div class="form-group">
-					<label for="name">Trip Name</label>
-					<input type="text" id="name" name="name" value={ trip.Name } required/>
+				<div class="mb-4">
+					<label for="name" class="block text-sm font-medium text-slate-700 mb-1">Trip Name</label>
+					<input
+						type="text"
+						id="name"
+						name="name"
+						value={ trip.Name }
+						required
+						class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
+					/>
 				</div>
-				<div class="form-group">
-					<label for="destination">Destination</label>
-					<input type="text" id="destination" name="destination" value={ trip.Destination } required/>
+				<div class="mb-4">
+					<label for="destination" class="block text-sm font-medium text-slate-700 mb-1">Destination</label>
+					<input
+						type="text"
+						id="destination"
+						name="destination"
+						value={ trip.Destination }
+						placeholder="Optional"
+						class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
+					/>
 				</div>
-				<div class="form-row">
-					<div class="form-group">
-						<label for="start_date">Start Date</label>
-						<input type="date" id="start_date" name="start_date" value={ formatDateInput(trip.StartDate) }/>
+				<div class="grid grid-cols-2 gap-4 mb-6">
+					<div>
+						<label for="start_date" class="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+						<input
+							type="date"
+							id="start_date"
+							name="start_date"
+							value={ formatDateInput(trip.StartDate) }
+							required
+							class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
+						/>
 					</div>
-					<div class="form-group">
-						<label for="end_date">End Date</label>
-						<input type="date" id="end_date" name="end_date" value={ formatDateInput(trip.EndDate) }/>
+					<div>
+						<label for="end_date" class="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+						<input
+							type="date"
+							id="end_date"
+							name="end_date"
+							value={ formatDateInput(trip.EndDate) }
+							required
+							class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
+						/>
 					</div>
 				</div>
-				<button type="submit" class="btn">Save Changes</button>
-				<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) } class="btn btn-secondary" style="margin-left: 0.5rem;">Cancel</a>
+				<div class="flex gap-3">
+					<button
+						type="submit"
+						class="px-4 py-2 bg-brand text-white rounded-md font-medium hover:bg-brand-dark transition-colors"
+					>
+						Save Changes
+					</button>
+					<a
+						href={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) }
+						class="px-4 py-2 text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+					>
+						Cancel
+					</a>
+				</div>
 			</form>
+		</div>
+		<!-- Delete Section -->
+		<div class="mt-8 bg-white border border-rose-200 rounded-lg p-6">
+			<h2 class="text-lg font-semibold text-rose-700 mb-2">Delete Trip</h2>
+			<p class="text-sm text-slate-600 mb-4">This action cannot be undone. All events associated with this trip will be permanently deleted.</p>
+			<div x-data="{ showDeleteDialog: false }">
+				<button
+					@click="showDeleteDialog = true"
+					class="px-4 py-2 bg-rose-600 text-white rounded-md font-medium hover:bg-rose-700 transition-colors"
+				>
+					Delete Trip
+				</button>
+				<!-- Delete Confirmation Dialog -->
+				<div x-show="showDeleteDialog" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+					<div class="fixed inset-0 bg-black/50" @click="showDeleteDialog = false"></div>
+					<div class="relative bg-white rounded-lg p-6 max-w-sm mx-4 shadow-xl">
+						<h3 class="text-lg font-semibold mb-2">Delete { trip.Name }?</h3>
+						<p class="text-sm text-slate-600 mb-4">This will permanently remove this trip and all its events.</p>
+						<div class="flex justify-end gap-3">
+							<button
+								@click="showDeleteDialog = false"
+								class="px-4 py-2 text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
+							>
+								Cancel
+							</button>
+							<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) }>
+								<input type="hidden" name="_method" value="DELETE"/>
+								<button
+									type="submit"
+									class="px-4 py-2 bg-rose-600 text-white rounded-md font-medium hover:bg-rose-700"
+								>
+									Delete
+								</button>
+							</form>
+						</div>
+					</div>
+				</div>
+			</div>
 		</div>
 	}
 }
 
-templ TripDetailPage(trip *domain.Trip, events []domain.Event) {
+templ TripDetailPage(trip *domain.Trip, days []TimelineDayData) {
 	@Layout(trip.Name) {
-		<h1>{ trip.Name }</h1>
-		<div class="card-meta" style="margin-bottom: 1rem;">
-			{ trip.Destination }
-			if !trip.StartDate.IsZero() {
-				• { trip.StartDate.Format("Jan 2, 2006") }
-				if !trip.EndDate.IsZero() {
-					- { trip.EndDate.Format("Jan 2, 2006") }
-				}
+		<!-- Breadcrumb -->
+		<div class="mb-6">
+			<nav class="text-sm text-slate-500">
+				<a href="/" class="hover:text-brand">Trips</a>
+				<span class="mx-2">›</span>
+				<span class="text-slate-900">{ trip.Name }</span>
+			</nav>
+		</div>
+		<!-- Trip Header -->
+		<div class="flex items-start justify-between mb-6">
+			<div>
+				<h1 class="text-2xl font-bold">{ trip.Name }</h1>
+				<div class="text-sm text-slate-500 mt-1">
+					if trip.Destination != "" {
+						<span>{ trip.Destination } · </span>
+					}
+					{ trip.StartDate.Format("Jan 2") } — { trip.EndDate.Format("Jan 2, 2006") }
+				</div>
+			</div>
+			<a
+				href={ templ.SafeURL(fmt.Sprintf("/trips/%d/edit", trip.ID)) }
+				class="px-3 py-1.5 text-sm text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+			>
+				Edit
+			</a>
+		</div>
+		<!-- Timeline -->
+		<div class="space-y-6">
+			for _, day := range days {
+				@TimelineDay(trip.ID, day)
 			}
 		</div>
-		<div style="margin-bottom: 1.5rem;">
-			<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d/edit", trip.ID)) } class="btn btn-secondary">Edit Trip</a>
-			<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d/events/new", trip.ID)) } class="btn" style="margin-left: 0.5rem;">Add Event</a>
+	}
+}
+
+templ TimelineDay(tripID int, day TimelineDayData) {
+	<div class="relative" id={ fmt.Sprintf("day-%s", day.Date.Format("2006-01-02")) }>
+		<!-- Day heading -->
+		<div class="flex items-center gap-3 mb-3">
+			<div class="w-3 h-3 rounded-full bg-brand shrink-0"></div>
+			<h2 class="text-base font-semibold text-slate-700">
+				{ fmt.Sprintf("Day %d", day.DayNumber) }
+				<span class="font-normal text-slate-400"> — </span>
+				<span class="font-normal text-slate-500">{ day.Date.Format("Monday, January 2") }</span>
+			</h2>
 		</div>
-		<h2>Timeline</h2>
-		<div id="event-list">
-			if len(events) == 0 {
-				<div class="empty-state">
-					<p>No events yet. Add your first event!</p>
-				</div>
+		<!-- Events or empty prompt -->
+		<div class="ml-1.5 pl-6 border-l-2 border-slate-200">
+			if len(day.Events) == 0 {
+				@EmptyDayPrompt(tripID, day)
 			} else {
-				<div class="timeline">
-					for _, event := range events {
+				<div class="space-y-3 pb-4">
+					for _, event := range day.Events {
 						@EventTimelineItem(event)
 					}
 				</div>
 			}
 		</div>
-	}
+	</div>
+}
+
+templ EmptyDayPrompt(tripID int, day TimelineDayData) {
+	<div class="py-6 text-center">
+		<p class="text-sm text-slate-400 mb-2">{ fmt.Sprintf("No events on Day %d", day.DayNumber) }</p>
+		<a
+			href={ templ.SafeURL(fmt.Sprintf("/trips/%d/events/new?date=%s", tripID, day.Date.Format("2006-01-02"))) }
+			class="inline-flex items-center px-3 py-1.5 text-sm text-brand border border-brand/30 rounded-md hover:bg-brand/5 transition-colors"
+		>
+			Add Event
+		</a>
+	</div>
 }
