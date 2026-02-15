@@ -14,6 +14,8 @@ import (
 type mockTripRepo struct {
 	trips                 map[int]*domain.Trip
 	eventsOutsideRangeErr error
+	affectedDays          []domain.DateEventCount
+	affectedDaysErr       error
 	nextID                int
 	eventsOutsideRange    int
 }
@@ -75,6 +77,13 @@ func (m *mockTripRepo) CountEventsByTripAndDateRange(_ context.Context, _ int, _
 		return 0, m.eventsOutsideRangeErr
 	}
 	return m.eventsOutsideRange, nil
+}
+
+func (m *mockTripRepo) CountEventsByTripGroupedByDate(_ context.Context, _ int, _, _ time.Time) ([]domain.DateEventCount, error) {
+	if m.affectedDaysErr != nil {
+		return nil, m.affectedDaysErr
+	}
+	return m.affectedDays, nil
 }
 
 func TestTripService_Create(t *testing.T) {
@@ -206,6 +215,37 @@ func TestTripService_Update(t *testing.T) {
 			input:   service.UpdateTripInput{Name: strPtr("X")},
 			wantErr: domain.ErrNotFound,
 		},
+		{
+			name: "empty name rejected",
+			setup: func(r *mockTripRepo) {
+				r.trips[1] = &domain.Trip{
+					ID:        1,
+					Name:      "Old Name",
+					StartDate: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+					EndDate:   time.Date(2026, 5, 5, 0, 0, 0, 0, time.UTC),
+				}
+			},
+			id:      1,
+			input:   service.UpdateTripInput{Name: strPtr("")},
+			wantErr: domain.ErrInvalidInput,
+		},
+		{
+			name: "end date before start date rejected",
+			setup: func(r *mockTripRepo) {
+				r.trips[1] = &domain.Trip{
+					ID:        1,
+					Name:      "Trip",
+					StartDate: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+					EndDate:   time.Date(2026, 5, 5, 0, 0, 0, 0, time.UTC),
+				}
+			},
+			id: 1,
+			input: service.UpdateTripInput{
+				StartDate: timePtr(time.Date(2026, 5, 5, 0, 0, 0, 0, time.UTC)),
+				EndDate:   timePtr(time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)),
+			},
+			wantErr: domain.ErrInvalidInput,
+		},
 	}
 
 	for _, tt := range tests {
@@ -275,38 +315,63 @@ func TestTripService_Delete(t *testing.T) {
 }
 
 func TestTripService_ValidateDateRangeShrink(t *testing.T) {
+	oldStart := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	oldEnd := time.Date(2026, 5, 5, 0, 0, 0, 0, time.UTC)
+
 	tests := []struct {
-		name               string
-		eventsOutsideRange int
-		wantErr            error
+		name         string
+		newStart     time.Time
+		newEnd       time.Time
+		affectedDays []domain.DateEventCount
+		wantErr      error
+		wantMsg      string
 	}{
 		{
-			name:               "no events outside range",
-			eventsOutsideRange: 0,
-			wantErr:            nil,
+			name:     "no shrink - range expanded",
+			newStart: oldStart,
+			newEnd:   time.Date(2026, 5, 7, 0, 0, 0, 0, time.UTC),
+			wantErr:  nil,
 		},
 		{
-			name:               "events exist outside range",
-			eventsOutsideRange: 3,
-			wantErr:            domain.ErrDateRangeConflict,
+			name:         "shrink with no affected days",
+			newStart:     time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC),
+			newEnd:       time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),
+			affectedDays: nil,
+			wantErr:      nil,
+		},
+		{
+			name:     "shrink with events on excluded days",
+			newStart: time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC),
+			newEnd:   time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),
+			affectedDays: []domain.DateEventCount{
+				{Date: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC), Count: 2},
+				{Date: time.Date(2026, 5, 5, 0, 0, 0, 0, time.UTC), Count: 1},
+			},
+			wantErr: domain.ErrDateRangeConflict,
+			wantMsg: "Thu, May 1 has 2 event(s)",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := newMockTripRepo()
-			repo.eventsOutsideRange = tt.eventsOutsideRange
+			repo.affectedDays = tt.affectedDays
 			svc := service.NewTripService(repo)
 
 			err := svc.ValidateDateRangeShrink(
 				context.Background(),
 				1,
-				time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC),
-				time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),
+				oldStart, oldEnd,
+				tt.newStart, tt.newEnd,
 			)
 			if tt.wantErr != nil {
 				if !errors.Is(err, tt.wantErr) {
 					t.Errorf("ValidateDateRangeShrink() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				if tt.wantMsg != "" && err != nil {
+					if !errors.Is(err, tt.wantErr) {
+						t.Errorf("expected error containing %q", tt.wantMsg)
+					}
 				}
 				return
 			}
@@ -317,4 +382,5 @@ func TestTripService_ValidateDateRangeShrink(t *testing.T) {
 	}
 }
 
-func strPtr(s string) *string { return &s }
+func strPtr(s string) *string        { return &s }
+func timePtr(t time.Time) *time.Time { return &t }

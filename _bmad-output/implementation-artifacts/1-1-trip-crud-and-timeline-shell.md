@@ -99,6 +99,18 @@ so that I can organize my travel plans with a clear structure from first day to 
   - [x] 10.2 Service tests: date range shrink validation — verify returns error with affected day details when events exist outside new range
   - [x] 10.3 Run `just test` and `just lint` — all passing, zero violations
 
+### Review Follow-ups (AI)
+
+- [x] [AI-Review][HIGH] AC #4: Delete dialog must display actual event count — wire `CountByTrip` in `EditPage` handler, pass count to template, update dialog text to "This will remove all {N} events" [`internal/handler/trip.go:106`, `internal/handler/trip.templ:237`]
+- [x] [AI-Review][HIGH] AC #6: Date range shrink must list affected days with event counts — wire `CountEventsByTripGroupedByDate` into repository interface and service, return per-day details in error message [`internal/service/trip.go:88`, `internal/repository/sql/events.sql:44`]
+- [x] [AI-Review][HIGH] Trip Update service must validate input — add name non-empty, dates non-zero, end >= start validation before applying updater [`internal/service/trip.go:69`]
+- [x] [AI-Review][MEDIUM] TripNewPage must preserve form values on validation error — pass submitted input to template, add `value` attributes to form fields [`internal/handler/trip.go:59`, `internal/handler/trip.templ:62`]
+- [x] [AI-Review][MEDIUM] Event delete handler should redirect to trip timeline instead of returning 200 with empty body [`internal/handler/event.go:154`]
+- [x] [AI-Review][MEDIUM] Add Notes textarea to event new/edit forms [`internal/handler/event.templ:59`, `internal/handler/event.templ:155`]
+- [x] [AI-Review][MEDIUM] ValidateDateRangeShrink should only run when range actually shrinks — compare old vs new dates first [`internal/handler/trip.go:146`]
+- [x] [AI-Review][LOW] Move shared pgtype helper functions to `internal/repository/helpers.go`
+- [x] [AI-Review][LOW] EventDate derivation via `Truncate(24*time.Hour)` is fragile for future timezone support [`internal/service/event.go:51`]
+
 ## Dev Notes
 
 ### Critical: Schema Is the First Task
@@ -202,6 +214,15 @@ No debug issues encountered.
 - Rewrote all templates with Tailwind CSS: Swiss bordered cards, timeline spine, empty day prompts, breadcrumb navigation
 - Wrote 11 table-driven service tests covering Create, Update, Delete, and ValidateDateRangeShrink
 - All tests pass, all lint checks pass
+- Resolved review finding [HIGH]: Delete dialog now displays actual event count from CountByTrip
+- Resolved review finding [HIGH]: Date range shrink now returns per-day details with event counts via CountEventsByTripGroupedByDate
+- Resolved review finding [HIGH]: Trip Update service now validates name non-empty, dates non-zero, end >= start before applying updater
+- Resolved review finding [MEDIUM]: TripNewPage preserves form values (name, destination, dates) on validation error
+- Resolved review finding [MEDIUM]: Event delete handler now redirects to trip timeline (303) instead of returning 200
+- Resolved review finding [MEDIUM]: Added Notes textarea to both event new and edit forms
+- Resolved review finding [MEDIUM]: ValidateDateRangeShrink now compares old vs new dates first, only queries DB when range actually shrinks
+- Resolved review finding [LOW]: Moved shared pgtype helpers (toPgDate, toPgTimestamptz, toPgText, toPgFloat8, toPgBool) to internal/repository/helpers.go
+- Resolved review finding [LOW]: Replaced Truncate(24*time.Hour) with time.Date() for safer EventDate derivation
 
 ### File List
 
@@ -228,6 +249,7 @@ No debug issues encountered.
 - `internal/handler/layout.templ` — Tailwind CSS, vendored JS
 - `internal/handler/trip.templ` — full rewrite with Tailwind: TripListPage, TripCard, TripNewPage, TripEditPage, TripDetailPage, TimelineDay, EmptyDayPrompt
 - `internal/handler/event.templ` — full rewrite with Tailwind: EventTimelineItem, EventNewPage, EventEditPage
+- `internal/repository/helpers.go` — new: shared pgtype helper functions (toPgDate, toPgTimestamptz, toPgText, toPgFloat8, toPgBool)
 - `internal/handler/helpers.go` — unchanged
 - `internal/handler/routes.go` — unchanged
 - `Justfile` — added css, css-watch recipes, updated dev/build
@@ -243,3 +265,5 @@ No debug issues encountered.
 ## Change Log
 
 - 2026-02-15: Story implementation complete — all 10 tasks done, 11 tests passing, lint clean
+- 2026-02-15: Code review — 3 HIGH, 4 MEDIUM, 2 LOW issues found. 9 action items created. Status → in-progress
+- 2026-02-15: Addressed all 9 code review findings — 13 tests passing, lint clean. Status → review

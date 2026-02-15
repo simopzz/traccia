@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/simopzz/traccia/internal/domain"
@@ -180,19 +179,4 @@ func eventRowToDomain(row *sqlcgen.Event) domain.Event {
 		CreatedAt: row.CreatedAt.Time,
 		UpdatedAt: row.UpdatedAt.Time,
 	}
-}
-
-func toPgText(s string) pgtype.Text {
-	return pgtype.Text{String: s, Valid: true}
-}
-
-func toPgFloat8(f *float64) pgtype.Float8 {
-	if f == nil {
-		return pgtype.Float8{}
-	}
-	return pgtype.Float8{Float64: *f, Valid: true}
-}
-
-func toPgBool(b bool) pgtype.Bool {
-	return pgtype.Bool{Bool: b, Valid: true}
 }

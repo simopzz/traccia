@@ -67,6 +67,19 @@ type UpdateTripInput struct {
 }
 
 func (s *TripService) Update(ctx context.Context, id int, input UpdateTripInput) (*domain.Trip, error) {
+	if input.Name != nil && *input.Name == "" {
+		return nil, fmt.Errorf("%w: name is required", domain.ErrInvalidInput)
+	}
+	if input.StartDate != nil && input.StartDate.IsZero() {
+		return nil, fmt.Errorf("%w: start date is required", domain.ErrInvalidInput)
+	}
+	if input.EndDate != nil && input.EndDate.IsZero() {
+		return nil, fmt.Errorf("%w: end date is required", domain.ErrInvalidInput)
+	}
+	if input.StartDate != nil && input.EndDate != nil && input.EndDate.Before(*input.StartDate) {
+		return nil, fmt.Errorf("%w: end date must be on or after start date", domain.ErrInvalidInput)
+	}
+
 	return s.repo.Update(ctx, id, func(trip *domain.Trip) *domain.Trip {
 		if input.Name != nil {
 			trip.Name = *input.Name
@@ -85,15 +98,30 @@ func (s *TripService) Update(ctx context.Context, id int, input UpdateTripInput)
 }
 
 // ValidateDateRangeShrink checks if shrinking a trip's date range would exclude days with events.
-func (s *TripService) ValidateDateRangeShrink(ctx context.Context, tripID int, newStart, newEnd time.Time) error {
-	count, err := s.repo.CountEventsByTripAndDateRange(ctx, tripID, newStart, newEnd)
+// It only queries the database when the range actually shrinks (new start after old start or new end before old end).
+func (s *TripService) ValidateDateRangeShrink(ctx context.Context, tripID int, oldStart, oldEnd, newStart, newEnd time.Time) error {
+	// Only validate when range actually shrinks
+	if !newStart.After(oldStart) && !newEnd.Before(oldEnd) {
+		return nil
+	}
+
+	affectedDays, err := s.repo.CountEventsByTripGroupedByDate(ctx, tripID, newStart, newEnd)
 	if err != nil {
 		return fmt.Errorf("checking events outside date range: %w", err)
 	}
-	if count > 0 {
-		return fmt.Errorf("%w: cannot shorten trip: %d event(s) exist outside the new date range. Remove or move them first", domain.ErrDateRangeConflict, count)
+	if len(affectedDays) == 0 {
+		return nil
 	}
-	return nil
+
+	msg := "cannot shorten trip: "
+	for i, day := range affectedDays {
+		if i > 0 {
+			msg += "; "
+		}
+		msg += fmt.Sprintf("%s has %d event(s)", day.Date.Format("Mon, Jan 2"), day.Count)
+	}
+	msg += ". Remove or move them first"
+	return fmt.Errorf("%w: %s", domain.ErrDateRangeConflict, msg)
 }
 
 func (s *TripService) Delete(ctx context.Context, id int) error {

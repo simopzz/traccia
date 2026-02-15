@@ -111,6 +111,26 @@ func (s *TripStore) CountEventsByTripAndDateRange(ctx context.Context, tripID in
 	return int(count), nil
 }
 
+func (s *TripStore) CountEventsByTripGroupedByDate(ctx context.Context, tripID int, newStart, newEnd time.Time) ([]domain.DateEventCount, error) {
+	rows, err := s.queries.CountEventsByTripGroupedByDate(ctx, sqlcgen.CountEventsByTripGroupedByDateParams{
+		TripID:      int32(tripID),
+		EventDate:   toPgDate(newStart),
+		EventDate_2: toPgDate(newEnd),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]domain.DateEventCount, len(rows))
+	for i, row := range rows {
+		result[i] = domain.DateEventCount{
+			Date:  row.EventDate.Time,
+			Count: int(row.EventCount),
+		}
+	}
+	return result, nil
+}
+
 func tripRowToDomain(row *sqlcgen.Trip) domain.Trip {
 	return domain.Trip{
 		ID:          int(row.ID),
@@ -121,18 +141,4 @@ func tripRowToDomain(row *sqlcgen.Trip) domain.Trip {
 		CreatedAt:   row.CreatedAt.Time,
 		UpdatedAt:   row.UpdatedAt.Time,
 	}
-}
-
-func toPgDate(t time.Time) pgtype.Date {
-	if t.IsZero() {
-		return pgtype.Date{}
-	}
-	return pgtype.Date{Time: t, Valid: true}
-}
-
-func toPgTimestamptz(t time.Time) pgtype.Timestamptz {
-	if t.IsZero() {
-		return pgtype.Timestamptz{}
-	}
-	return pgtype.Timestamptz{Time: t.UTC(), Valid: true}
 }

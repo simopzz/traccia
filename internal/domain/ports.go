@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+// DateEventCount holds an event count for a specific date.
+type DateEventCount struct {
+	Date  time.Time
+	Count int
+}
+
 type TripRepository interface {
 	Create(ctx context.Context, trip *Trip) error
 	GetByID(ctx context.Context, id int) (*Trip, error)
@@ -12,6 +18,7 @@ type TripRepository interface {
 	Update(ctx context.Context, id int, updater func(*Trip) *Trip) (*Trip, error)
 	Delete(ctx context.Context, id int) error
 	CountEventsByTripAndDateRange(ctx context.Context, tripID int, newStart, newEnd time.Time) (int, error)
+	CountEventsByTripGroupedByDate(ctx context.Context, tripID int, newStart, newEnd time.Time) ([]DateEventCount, error)
 }
 
 type EventRepository interface {

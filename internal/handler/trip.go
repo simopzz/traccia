@@ -37,7 +37,7 @@ func (h *TripHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TripHandler) NewPage(w http.ResponseWriter, r *http.Request) {
-	templ.Handler(TripNewPage(nil)).ServeHTTP(w, r)
+	templ.Handler(TripNewPage(nil, nil)).ServeHTTP(w, r)
 }
 
 func (h *TripHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +56,7 @@ func (h *TripHandler) Create(w http.ResponseWriter, r *http.Request) {
 	trip, err := h.tripService.Create(r.Context(), input)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			templ.Handler(TripNewPage(newFormErrors(err))).ServeHTTP(w, r)
+			templ.Handler(TripNewPage(input, newFormErrors(err))).ServeHTTP(w, r)
 			return
 		}
 		http.Error(w, "Failed to create trip", http.StatusInternalServerError)
@@ -121,7 +121,13 @@ func (h *TripHandler) EditPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	templ.Handler(TripEditPage(trip, nil)).ServeHTTP(w, r)
+	eventCount, err := h.eventService.CountByTrip(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Failed to count events", http.StatusInternalServerError)
+		return
+	}
+
+	templ.Handler(TripEditPage(trip, eventCount, nil)).ServeHTTP(w, r)
 }
 
 func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -143,14 +149,24 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 	endDate := parseDate(r.FormValue("end_date"))
 
 	// Validate date range shrink before updating
-	if shrinkErr := h.tripService.ValidateDateRangeShrink(r.Context(), id, startDate, endDate); shrinkErr != nil {
+	trip, err := h.tripService.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, "Trip not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Failed to load trip", http.StatusInternalServerError)
+		return
+	}
+
+	if shrinkErr := h.tripService.ValidateDateRangeShrink(r.Context(), id, trip.StartDate, trip.EndDate, startDate, endDate); shrinkErr != nil {
 		if errors.Is(shrinkErr, domain.ErrDateRangeConflict) {
-			trip, getErr := h.tripService.GetByID(r.Context(), id)
-			if getErr != nil {
-				http.Error(w, "Failed to load trip", http.StatusInternalServerError)
+			eventCount, countErr := h.eventService.CountByTrip(r.Context(), id)
+			if countErr != nil {
+				http.Error(w, "Failed to count events", http.StatusInternalServerError)
 				return
 			}
-			templ.Handler(TripEditPage(trip, newFormErrors(shrinkErr))).ServeHTTP(w, r)
+			templ.Handler(TripEditPage(trip, eventCount, newFormErrors(shrinkErr))).ServeHTTP(w, r)
 			return
 		}
 		http.Error(w, "Failed to validate date range", http.StatusInternalServerError)
@@ -168,6 +184,15 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			http.Error(w, "Trip not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidInput) {
+			eventCount, countErr := h.eventService.CountByTrip(r.Context(), id)
+			if countErr != nil {
+				http.Error(w, "Failed to count events", http.StatusInternalServerError)
+				return
+			}
+			templ.Handler(TripEditPage(trip, eventCount, newFormErrors(err))).ServeHTTP(w, r)
 			return
 		}
 		http.Error(w, "Failed to update trip", http.StatusInternalServerError)

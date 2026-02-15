@@ -48,7 +48,7 @@ func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*do
 
 	event := &domain.Event{
 		TripID:    input.TripID,
-		EventDate: input.StartTime.Truncate(24 * time.Hour),
+		EventDate: time.Date(input.StartTime.Year(), input.StartTime.Month(), input.StartTime.Day(), 0, 0, 0, 0, input.StartTime.Location()),
 		Title:     input.Title,
 		Category:  input.Category,
 		Location:  input.Location,
@@ -115,7 +115,7 @@ func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInp
 		}
 		if input.StartTime != nil {
 			event.StartTime = *input.StartTime
-			event.EventDate = input.StartTime.Truncate(24 * time.Hour)
+			event.EventDate = time.Date(input.StartTime.Year(), input.StartTime.Month(), input.StartTime.Day(), 0, 0, 0, 0, input.StartTime.Location())
 		}
 		if input.EndTime != nil {
 			event.EndTime = *input.EndTime
