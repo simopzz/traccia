@@ -5,12 +5,21 @@ default:
 # Build and test
 all: build test
 
-# Hot reload via air
+# Hot reload via air + Tailwind watcher
 dev:
+    @just css-watch &
     air
 
+# Build Tailwind CSS
+css:
+    ./bin/tailwindcss -i ./static/css/input.css -o ./static/css/app.css --minify
+
+# Watch Tailwind CSS for changes
+css-watch:
+    ./bin/tailwindcss -i ./static/css/input.css -o ./static/css/app.css --watch
+
 # Build binary to bin/app
-build:
+build: css
     go build -o bin/app ./cmd/app
 
 # Run the application
@@ -48,6 +57,7 @@ tools:
     @command -v golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
     @command -v goimports >/dev/null || go install golang.org/x/tools/cmd/goimports@latest
     @command -v migrate >/dev/null || go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+    @command -v templui >/dev/null || go install github.com/templui/templui/cmd/templui@latest
 
 # Start PostgreSQL container
 docker-up:

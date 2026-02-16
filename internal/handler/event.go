@@ -54,6 +54,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Location:  r.FormValue("location"),
 		StartTime: parseDateTime(r.FormValue("start_time")),
 		EndTime:   parseDateTime(r.FormValue("end_time")),
+		Notes:     r.FormValue("notes"),
 		Pinned:    r.FormValue("pinned") == "true",
 	}
 
@@ -110,14 +111,16 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	location := r.FormValue("location")
 	startTime := parseDateTime(r.FormValue("start_time"))
 	endTime := parseDateTime(r.FormValue("end_time"))
+	notes := r.FormValue("notes")
 	pinned := r.FormValue("pinned") == "true"
 
-	input := service.UpdateEventInput{
+	input := &service.UpdateEventInput{
 		Title:     &title,
 		Category:  &category,
 		Location:  &location,
 		StartTime: &startTime,
 		EndTime:   &endTime,
+		Notes:     &notes,
 		Pinned:    &pinned,
 	}
 
@@ -135,6 +138,7 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	tripIDStr := chi.URLParam(r, "tripID")
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -151,5 +155,5 @@ func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	http.Redirect(w, r, "/trips/"+tripIDStr, http.StatusSeeOther)
 }
