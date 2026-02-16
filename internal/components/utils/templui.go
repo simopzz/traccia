@@ -3,19 +3,17 @@ package utils
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"crypto/rand"
 
 	"github.com/a-h/templ"
-
-	twmerge "github.com/Oudwins/tailwind-merge-go"
 )
 
-// TwMerge combines Tailwind classes and resolves conflicts.
-// Example: "bg-red-500 hover:bg-blue-500", "bg-green-500" → "hover:bg-blue-500 bg-green-500"
+// TwMerge combines Tailwind classes by concatenation.
 func TwMerge(classes ...string) string {
-	return twmerge.Merge(classes...)
+	return strings.Join(classes, " ")
 }
 
 // TwIf returns value if condition is true, otherwise an empty value of type T.

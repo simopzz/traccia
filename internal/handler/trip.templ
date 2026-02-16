@@ -39,7 +39,7 @@ templ TripListPage(trips []domain.Trip) {
 
 templ TripCard(trip domain.Trip) {
 	<div
-		class="bg-white border border-slate-200 rounded-lg p-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] hover:shadow-[2px_2px_0px_0px_rgba(0,128,128,0.15)] transition-shadow"
+		class="bg-white border-2 border-slate-900 p-4 shadow-[3px_3px_0px_0px_#0f172a] hover:shadow-[4px_4px_0px_0px_#0f172a] hover:-translate-x-px hover:-translate-y-px transition-all"
 		id={ fmt.Sprintf("trip-%d", trip.ID) }
 	>
 		<a href={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) } class="block no-underline">
@@ -70,7 +70,7 @@ templ TripNewPage(input *service.CreateTripInput, formErrors *FormErrors) {
 			</nav>
 		</div>
 		<h1 class="text-2xl font-bold mb-6">New Trip</h1>
-		<div class="bg-white border border-slate-200 rounded-lg p-6 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)]">
+		<div class="bg-white border-2 border-slate-900 p-6 shadow-[3px_3px_0px_0px_#0f172a]">
 			if formErrors != nil && formErrors.General != "" {
 				<div class="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-md text-rose-700 text-sm">
 					{ formErrors.General }
@@ -162,7 +162,7 @@ templ TripEditPage(trip *domain.Trip, eventCount int, formErrors *FormErrors) {
 			</nav>
 		</div>
 		<h1 class="text-2xl font-bold mb-6">Edit Trip</h1>
-		<div class="bg-white border border-slate-200 rounded-lg p-6 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)]">
+		<div class="bg-white border-2 border-slate-900 p-6 shadow-[3px_3px_0px_0px_#0f172a]">
 			if formErrors != nil && formErrors.General != "" {
 				<div class="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-md text-rose-700 text-sm">
 					{ formErrors.General }
@@ -233,7 +233,7 @@ templ TripEditPage(trip *domain.Trip, eventCount int, formErrors *FormErrors) {
 			</form>
 		</div>
 		<!-- Delete Section -->
-		<div class="mt-8 bg-white border border-rose-200 rounded-lg p-6">
+		<div class="mt-8 bg-white border-2 border-rose-400 p-6 shadow-[3px_3px_0px_0px_#e11d48]">
 			<h2 class="text-lg font-semibold text-rose-700 mb-2">Delete Trip</h2>
 			<p class="text-sm text-slate-600 mb-4">This action cannot be undone. All events associated with this trip will be permanently deleted.</p>
 			<div x-data="{ showDeleteDialog: false }">
@@ -320,16 +320,12 @@ templ TripDetailPage(trip *domain.Trip, days []TimelineDayData) {
 templ TimelineDay(tripID int, day TimelineDayData) {
 	<div class="relative" id={ fmt.Sprintf("day-%s", day.Date.Format("2006-01-02")) }>
 		<!-- Day heading -->
-		<div class="flex items-center gap-3 mb-3">
-			<div class="w-3 h-3 rounded-full bg-brand shrink-0"></div>
-			<h2 class="text-base font-semibold text-slate-700">
-				{ fmt.Sprintf("Day %d", day.DayNumber) }
-				<span class="font-normal text-slate-400"> — </span>
-				<span class="font-normal text-slate-500">{ day.Date.Format("Monday, January 2") }</span>
-			</h2>
+		<div class="flex items-baseline gap-3 mb-5 pb-3 border-b-2 border-slate-900">
+			<span class="text-xs font-bold uppercase tracking-wide text-slate-500">{ fmt.Sprintf("Day %d", day.DayNumber) }</span>
+			<span class="text-xl font-bold text-slate-900">{ day.Date.Format("Monday, January 2") }</span>
 		</div>
 		<!-- Events or empty prompt -->
-		<div class="ml-1.5 pl-6 border-l-2 border-slate-200">
+		<div class="relative pl-12 before:content-[''] before:absolute before:left-[9px] before:top-0 before:bottom-0 before:w-0.5 before:bg-slate-300">
 			if len(day.Events) == 0 {
 				@EmptyDayPrompt(tripID, day)
 			} else {
@@ -344,13 +340,10 @@ templ TimelineDay(tripID int, day TimelineDayData) {
 }
 
 templ EmptyDayPrompt(tripID int, day TimelineDayData) {
-	<div class="py-6 text-center">
-		<p class="text-sm text-slate-400 mb-2">{ fmt.Sprintf("Add your first event to Day %d", day.DayNumber) }</p>
-		<a
-			href={ templ.SafeURL(fmt.Sprintf("/trips/%d/events/new?date=%s", tripID, day.Date.Format("2006-01-02"))) }
-			class="inline-flex items-center px-3 py-1.5 text-sm text-brand border border-brand/30 rounded-md hover:bg-brand/5 transition-colors"
-		>
-			Add Event
-		</a>
-	</div>
+	<a
+		href={ templ.SafeURL(fmt.Sprintf("/trips/%d/events/new?date=%s", tripID, day.Date.Format("2006-01-02"))) }
+		class="block border-2 border-dashed border-slate-300 py-5 text-center text-sm text-slate-400 hover:border-brand hover:text-brand hover:bg-brand/5 transition-all cursor-pointer no-underline"
+	>
+		{ fmt.Sprintf("+ Add event to Day %d", day.DayNumber) }
+	</a>
 }
