@@ -41,9 +41,21 @@ func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*do
 	if input.TripID <= 0 {
 		return nil, fmt.Errorf("%w: trip_id is required", domain.ErrInvalidInput)
 	}
+	if input.StartTime.IsZero() {
+		return nil, fmt.Errorf("%w: start time is required", domain.ErrInvalidInput)
+	}
+	if input.EndTime.IsZero() {
+		return nil, fmt.Errorf("%w: end time is required", domain.ErrInvalidInput)
+	}
+	if input.EndTime.Before(input.StartTime) {
+		return nil, fmt.Errorf("%w: end time must be on or after start time", domain.ErrInvalidInput)
+	}
 
 	if input.Category == "" {
 		input.Category = domain.CategoryActivity
+	}
+	if !domain.IsValidEventCategory(input.Category) {
+		return nil, fmt.Errorf("%w: invalid category %q", domain.ErrInvalidInput, input.Category)
 	}
 
 	event := &domain.Event{

@@ -130,7 +130,14 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 }
 
 func (s *EventStore) Delete(ctx context.Context, id int) error {
-	return s.queries.DeleteEvent(ctx, int32(id))
+	rows, err := s.queries.DeleteEvent(ctx, int32(id))
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
 }
 
 func (s *EventStore) GetLastEventByTrip(ctx context.Context, tripID int) (*domain.Event, error) {

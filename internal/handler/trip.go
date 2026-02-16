@@ -148,31 +148,6 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 	startDate := parseDate(r.FormValue("start_date"))
 	endDate := parseDate(r.FormValue("end_date"))
 
-	// Validate date range shrink before updating
-	trip, err := h.tripService.GetByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
-			http.Error(w, "Trip not found", http.StatusNotFound)
-			return
-		}
-		http.Error(w, "Failed to load trip", http.StatusInternalServerError)
-		return
-	}
-
-	if shrinkErr := h.tripService.ValidateDateRangeShrink(r.Context(), id, trip.StartDate, trip.EndDate, startDate, endDate); shrinkErr != nil {
-		if errors.Is(shrinkErr, domain.ErrDateRangeConflict) {
-			eventCount, countErr := h.eventService.CountByTrip(r.Context(), id)
-			if countErr != nil {
-				http.Error(w, "Failed to count events", http.StatusInternalServerError)
-				return
-			}
-			templ.Handler(TripEditPage(trip, eventCount, newFormErrors(shrinkErr))).ServeHTTP(w, r)
-			return
-		}
-		http.Error(w, "Failed to validate date range", http.StatusInternalServerError)
-		return
-	}
-
 	input := service.UpdateTripInput{
 		Name:        &name,
 		Destination: &destination,
@@ -186,7 +161,17 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Trip not found", http.StatusNotFound)
 			return
 		}
-		if errors.Is(err, domain.ErrInvalidInput) {
+		if errors.Is(err, domain.ErrInvalidInput) || errors.Is(err, domain.ErrDateRangeConflict) {
+			trip, getErr := h.tripService.GetByID(r.Context(), id)
+			if getErr != nil {
+				http.Error(w, "Failed to load trip", http.StatusInternalServerError)
+				return
+			}
+			// Overlay user's form input so the form preserves what they typed
+			trip.Name = name
+			trip.Destination = destination
+			trip.StartDate = startDate
+			trip.EndDate = endDate
 			eventCount, countErr := h.eventService.CountByTrip(r.Context(), id)
 			if countErr != nil {
 				http.Error(w, "Failed to count events", http.StatusInternalServerError)

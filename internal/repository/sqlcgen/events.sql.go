@@ -119,13 +119,16 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 	return i, err
 }
 
-const deleteEvent = `-- name: DeleteEvent :exec
+const deleteEvent = `-- name: DeleteEvent :execrows
 DELETE FROM events WHERE id = $1
 `
 
-func (q *Queries) DeleteEvent(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, deleteEvent, id)
-	return err
+func (q *Queries) DeleteEvent(ctx context.Context, id int32) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteEvent, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getEventByID = `-- name: GetEventByID :one

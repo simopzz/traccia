@@ -17,7 +17,7 @@ SET name = $2, destination = $3, start_date = $4, end_date = $5, updated_at = NO
 WHERE id = $1
 RETURNING *;
 
--- name: DeleteTrip :exec
+-- name: DeleteTrip :execrows
 DELETE FROM trips WHERE id = $1;
 
 -- name: CountEventsByTripAndDateRange :one

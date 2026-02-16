@@ -345,7 +345,7 @@ templ TimelineDay(tripID int, day TimelineDayData) {
 
 templ EmptyDayPrompt(tripID int, day TimelineDayData) {
 	<div class="py-6 text-center">
-		<p class="text-sm text-slate-400 mb-2">{ fmt.Sprintf("No events on Day %d", day.DayNumber) }</p>
+		<p class="text-sm text-slate-400 mb-2">{ fmt.Sprintf("Add your first event to Day %d", day.DayNumber) }</p>
 		<a
 			href={ templ.SafeURL(fmt.Sprintf("/trips/%d/events/new?date=%s", tripID, day.Date.Format("2006-01-02"))) }
 			class="inline-flex items-center px-3 py-1.5 text-sm text-brand border border-brand/30 rounded-md hover:bg-brand/5 transition-colors"

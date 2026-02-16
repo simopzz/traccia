@@ -24,7 +24,7 @@ SET title = $2, category = $3, location = $4, latitude = $5, longitude = $6,
 WHERE id = $1
 RETURNING *;
 
--- name: DeleteEvent :exec
+-- name: DeleteEvent :execrows
 DELETE FROM events WHERE id = $1;
 
 -- name: GetMaxPositionByTripAndDate :one

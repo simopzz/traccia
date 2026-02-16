@@ -80,6 +80,25 @@ func (s *TripService) Update(ctx context.Context, id int, input UpdateTripInput)
 		return nil, fmt.Errorf("%w: end date must be on or after start date", domain.ErrInvalidInput)
 	}
 
+	// Validate date range shrink if dates are changing
+	if input.StartDate != nil || input.EndDate != nil {
+		current, err := s.repo.GetByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		newStart := current.StartDate
+		if input.StartDate != nil {
+			newStart = *input.StartDate
+		}
+		newEnd := current.EndDate
+		if input.EndDate != nil {
+			newEnd = *input.EndDate
+		}
+		if err := s.ValidateDateRangeShrink(ctx, id, current.StartDate, current.EndDate, newStart, newEnd); err != nil {
+			return nil, err
+		}
+	}
+
 	return s.repo.Update(ctx, id, func(trip *domain.Trip) *domain.Trip {
 		if input.Name != nil {
 			trip.Name = *input.Name

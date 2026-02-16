@@ -111,6 +111,17 @@ so that I can organize my travel plans with a clear structure from first day to 
 - [x] [AI-Review][LOW] Move shared pgtype helper functions to `internal/repository/helpers.go`
 - [x] [AI-Review][LOW] EventDate derivation via `Truncate(24*time.Hour)` is fragile for future timezone support [`internal/service/event.go:51`]
 
+### Review Follow-ups Round 2 (AI)
+
+- [x] [AI-Review-2][HIGH] Delete repos silently succeed on non-existent IDs — changed SQL from `:exec` to `:execrows`, stores now check rows affected [`repository/trip_store.go:98`, `repository/event_store.go:132`]
+- [x] [AI-Review-2][HIGH] ValidateDateRangeShrink called from handler instead of service — moved into `TripService.Update` [`service/trip.go:69`, `handler/trip.go:146`]
+- [x] [AI-Review-2][HIGH] EventService.Create missing time validation — added StartTime/EndTime non-zero and EndTime >= StartTime checks [`service/event.go:37`]
+- [x] [AI-Review-2][MEDIUM] TripEditPage shows stale data on validation error — now overlays user's form input before re-rendering [`handler/trip.go:160`]
+- [x] [AI-Review-2][MEDIUM] EventCategory not validated — added `IsValidEventCategory` check in service [`domain/models.go:25`, `service/event.go:55`]
+- [x] [AI-Review-2][MEDIUM] No EventService tests — added 12 table-driven tests for Create, Update, Delete [`service/event_test.go`]
+- [x] [AI-Review-2][LOW] EmptyDayPrompt text inconsistent with Task 8.2 spec — changed to "Add your first event to Day N" [`handler/trip.templ:348`]
+- [x] [AI-Review-2][LOW] Missing files in story File List — added go.mod, go.sum, mise.toml, .air.toml
+
 ## Dev Notes
 
 ### Critical: Schema Is the First Task
@@ -223,6 +234,14 @@ No debug issues encountered.
 - Resolved review finding [MEDIUM]: ValidateDateRangeShrink now compares old vs new dates first, only queries DB when range actually shrinks
 - Resolved review finding [LOW]: Moved shared pgtype helpers (toPgDate, toPgTimestamptz, toPgText, toPgFloat8, toPgBool) to internal/repository/helpers.go
 - Resolved review finding [LOW]: Replaced Truncate(24*time.Hour) with time.Date() for safer EventDate derivation
+- Resolved review-2 finding [HIGH]: Delete repos now return ErrNotFound via :execrows + rows affected check
+- Resolved review-2 finding [HIGH]: ValidateDateRangeShrink moved into TripService.Update (business logic in service layer)
+- Resolved review-2 finding [HIGH]: EventService.Create validates StartTime/EndTime non-zero and EndTime >= StartTime
+- Resolved review-2 finding [MEDIUM]: TripEditPage preserves user's form input on validation error
+- Resolved review-2 finding [MEDIUM]: EventCategory validated via IsValidEventCategory
+- Resolved review-2 finding [MEDIUM]: Added 12 EventService tests (Create, Update, Delete)
+- Resolved review-2 finding [LOW]: EmptyDayPrompt text matches Task 8.2 spec
+- Resolved review-2 finding [LOW]: Added missing files to File List
 
 ### File List
 
@@ -250,8 +269,13 @@ No debug issues encountered.
 - `internal/handler/trip.templ` — full rewrite with Tailwind: TripListPage, TripCard, TripNewPage, TripEditPage, TripDetailPage, TimelineDay, EmptyDayPrompt
 - `internal/handler/event.templ` — full rewrite with Tailwind: EventTimelineItem, EventNewPage, EventEditPage
 - `internal/repository/helpers.go` — new: shared pgtype helper functions (toPgDate, toPgTimestamptz, toPgText, toPgFloat8, toPgBool)
+- `internal/service/event_test.go` — new: 12 table-driven tests for EventService
 - `internal/handler/helpers.go` — unchanged
 - `internal/handler/routes.go` — unchanged
+- `go.mod` — updated dependencies
+- `go.sum` — updated dependency checksums
+- `mise.toml` — tool version management
+- `.air.toml` — hot reload configuration
 - `Justfile` — added css, css-watch recipes, updated dev/build
 - `.golangci.yml` — excluded internal/components and test files from some linters
 - `.templui.json` — new: templui configuration
@@ -267,3 +291,4 @@ No debug issues encountered.
 - 2026-02-15: Story implementation complete — all 10 tasks done, 11 tests passing, lint clean
 - 2026-02-15: Code review — 3 HIGH, 4 MEDIUM, 2 LOW issues found. 9 action items created. Status → in-progress
 - 2026-02-15: Addressed all 9 code review findings — 13 tests passing, lint clean. Status → review
+- 2026-02-16: Code review round 2 — 3 HIGH, 3 MEDIUM, 2 LOW issues found and fixed. 25 tests passing. Status → review

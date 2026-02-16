@@ -96,7 +96,14 @@ func (s *TripStore) Update(ctx context.Context, id int, updater func(*domain.Tri
 }
 
 func (s *TripStore) Delete(ctx context.Context, id int) error {
-	return s.queries.DeleteTrip(ctx, int32(id))
+	rows, err := s.queries.DeleteTrip(ctx, int32(id))
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
 }
 
 func (s *TripStore) CountEventsByTripAndDateRange(ctx context.Context, tripID int, newStart, newEnd time.Time) (int, error) {
