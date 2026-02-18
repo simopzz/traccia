@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/a-h/templ"
@@ -26,6 +27,17 @@ type EventFormData struct {
 	Notes     string
 	TripID    int
 	Pinned    bool
+}
+
+// renderEventFormError sends a 422 response with the appropriate form template.
+// HTMX requests get the Sheet fragment; direct browser submissions get the full page.
+func renderEventFormError(w http.ResponseWriter, r *http.Request, data *EventFormData) {
+	w.WriteHeader(http.StatusUnprocessableEntity)
+	if r.Header.Get("HX-Request") == "true" {
+		templ.Handler(EventCreateForm(data)).ServeHTTP(w, r)
+	} else {
+		templ.Handler(EventNewPage(data)).ServeHTTP(w, r)
+	}
 }
 
 type EventHandler struct {
@@ -76,7 +88,7 @@ func (h *EventHandler) NewPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	templ.Handler(EventNewPage(tripID, defaults.StartTime)).ServeHTTP(w, r)
+	templ.Handler(EventNewPage(formData)).ServeHTTP(w, r)
 }
 
 func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -127,11 +139,13 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if dateStr == "" {
 		formErrors["date"] = "Date is required"
 	}
+	if category != "" && category != string(domain.CategoryActivity) && category != string(domain.CategoryFood) {
+		formErrors["category"] = "Only Activity and Food events are currently supported"
+	}
 
 	if len(formErrors) > 0 {
 		formData.Errors = formErrors
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		templ.Handler(EventCreateForm(formData)).ServeHTTP(w, r)
+		renderEventFormError(w, r, formData)
 		return
 	}
 
@@ -139,8 +153,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		formErrors["start_time"] = "Invalid start time format"
 		formData.Errors = formErrors
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		templ.Handler(EventCreateForm(formData)).ServeHTTP(w, r)
+		renderEventFormError(w, r, formData)
 		return
 	}
 
@@ -148,8 +161,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		formErrors["end_time"] = "Invalid end time format"
 		formData.Errors = formErrors
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		templ.Handler(EventCreateForm(formData)).ServeHTTP(w, r)
+		renderEventFormError(w, r, formData)
 		return
 	}
 
@@ -167,11 +179,10 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 	event, err := h.eventService.Create(r.Context(), input)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			// Map service error to most likely field
-			formErrors["general"] = err.Error()
+			// Strip the domain error prefix to avoid leaking internals to the UI
+			formErrors["general"] = strings.TrimPrefix(err.Error(), "invalid input: ")
 			formData.Errors = formErrors
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			templ.Handler(EventCreateForm(formData)).ServeHTTP(w, r)
+			renderEventFormError(w, r, formData)
 			return
 		}
 		http.Error(w, "Failed to create event", http.StatusInternalServerError)

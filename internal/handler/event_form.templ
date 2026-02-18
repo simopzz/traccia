@@ -34,6 +34,8 @@ templ TypeSelector(selected string) {
 		role="radiogroup"
 		aria-label="Event type"
 		class="flex gap-2 mb-6"
+		x-on:keydown.arrowleft.prevent="const r=[...$el.querySelectorAll('button[role=radio]:not([disabled])')];const i=r.indexOf(document.activeElement);r[(i-1+r.length)%r.length]?.focus()"
+		x-on:keydown.arrowright.prevent="const r=[...$el.querySelectorAll('button[role=radio]:not([disabled])')];const i=r.indexOf(document.activeElement);r[(i+1)%r.length]?.focus()"
 	>
 		for _, cat := range []string{"activity", "food", "lodging", "transit", "flight"} {
 			if enabledCategories[cat] {
@@ -86,12 +88,12 @@ templ EventCreateForm(data *EventFormData) {
 		}
 		<h2 class="text-xl font-bold mb-1 text-slate-900">Add Event</h2>
 		<p class="text-xs text-slate-500 mb-5 uppercase tracking-wide font-medium">{ data.Date }</p>
-		@TypeSelector(data.Category)
 		<form
 			hx-post={ fmt.Sprintf("/trips/%d/events", data.TripID) }
 			hx-target="#sheet-form"
 			hx-swap="innerHTML"
 		>
+			@TypeSelector(data.Category)
 			<input type="hidden" name="date" value={ data.Date }/>
 			<!-- Title -->
 			<div class="mb-4">

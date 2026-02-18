@@ -1,6 +1,6 @@
 # Story 1.2: Activity & Food Event Creation
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -350,14 +350,19 @@ No blocking issues encountered.
 ### File List
 
 - internal/service/event.go (modified — added SuggestDefaults, EventDefaults, durationForCategory, duration constants; removed SuggestStartTime)
-- internal/service/event_test.go (modified — added TestEventService_SuggestDefaults, TestEventService_Create_ActivityCategory, TestEventService_Create_FoodCategory, TestEventService_Create_PositionAssignment)
-- internal/handler/event.go (modified — added EventFormData, dual-path NewPage, HTMX Create with retarget/reswap/closeSheet, field-level validation)
-- internal/handler/event.templ (modified — redesigned EventTimelineItem with Collapsible, type icons, lock icon, aria-label, li element)
-- internal/handler/event_form.templ (new — TypeSelector, EventCreateForm components)
-- internal/handler/trip.templ (modified — TripDetailPage with custom Alpine.js sheet panel, TimelineDay with day header Add Event button and ul wrapper, EmptyDayPrompt with HTMX, $dispatch triggers)
-- internal/handler/layout.templ (modified — removed dialog.min.js script tag, no longer needed)
+- internal/service/event_test.go (modified — added TestEventService_SuggestDefaults, TestEventService_Create_ActivityCategory, TestEventService_Create_FoodCategory, TestEventService_Create_MultipleEvents)
+- internal/handler/event.go (modified — added EventFormData, dual-path NewPage, HTMX Create with retarget/reswap/closeSheet, field-level validation, renderEventFormError helper, category restriction)
+- internal/handler/event.templ (modified — redesigned EventTimelineItem with Collapsible, type icons, lock icon, aria-label, li element; updated EventNewPage to accept EventFormData with correct form fields)
+- internal/handler/event_form.templ (new — TypeSelector with arrow key navigation, EventCreateForm components)
+- internal/handler/trip.templ (modified — TripDetailPage with custom Alpine.js sheet panel, responsive bottom/right sheet, TimelineDay with day header Add Event button and ul wrapper, EmptyDayPrompt with HTMX, $dispatch triggers)
 - internal/handler/helpers.go (modified — added parseDateAndTime helper)
+- .air.toml (modified — added _bmad and _bmad-output to hot-reload exclusions)
+- Justfile (modified — added tailwind-install recipe)
+- static/css/app.css (modified — rebuilt CSS output)
+- static/css/input.css (modified — added templui semantic color variables)
+- Note: layout.templ was listed here in error; dialog.min.js was already absent before this story's commit
 
 ### Change Log
 
 - 2026-02-16: Story 1.2 implementation complete — Activity & Food event creation via Sheet panel with TypeSelector, smart time defaults, HTMX day-level swaps, redesigned EventCard with Collapsible structure
+- 2026-02-18: Code review fixes — responsive bottom/right sheet (AC1 mobile), fixed EventNewPage fallback form (broken date+time fields), added renderEventFormError helper, category restriction at handler level, SuggestDefaults DB error logging, TypeSelector arrow key navigation (ARIA radiogroup), fixed position test to not assert mock internals, stripped internal error prefix from UI display, corrected File List (layout.templ, undocumented css/tooling files)

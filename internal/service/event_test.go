@@ -284,40 +284,43 @@ func TestEventService_Create_FoodCategory(t *testing.T) {
 	}
 }
 
-func TestEventService_Create_PositionAssignment(t *testing.T) {
+// TestEventService_Create_MultipleEvents verifies that multiple events can be created
+// for the same trip without error and each receives a unique non-zero ID.
+// Position assignment is a repository concern and is tested at the integration level.
+func TestEventService_Create_MultipleEvents(t *testing.T) {
 	repo := newMockEventRepo()
 	svc := service.NewEventService(repo)
 
-	// Create first event
-	input1 := &service.CreateEventInput{
-		TripID:    1,
-		Title:     "First Event",
-		Category:  domain.CategoryActivity,
-		StartTime: time.Date(2026, 5, 1, 9, 0, 0, 0, time.UTC),
-		EndTime:   time.Date(2026, 5, 1, 11, 0, 0, 0, time.UTC),
-	}
-	event1, err := svc.Create(context.Background(), input1)
-	if err != nil {
-		t.Fatalf("Create first event: %v", err)
-	}
-	if event1.Position != 1000 {
-		t.Errorf("First event position = %d, want 1000", event1.Position)
+	inputs := []*service.CreateEventInput{
+		{
+			TripID:    1,
+			Title:     "First Event",
+			Category:  domain.CategoryActivity,
+			StartTime: time.Date(2026, 5, 1, 9, 0, 0, 0, time.UTC),
+			EndTime:   time.Date(2026, 5, 1, 11, 0, 0, 0, time.UTC),
+		},
+		{
+			TripID:    1,
+			Title:     "Second Event",
+			Category:  domain.CategoryFood,
+			StartTime: time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+			EndTime:   time.Date(2026, 5, 1, 13, 30, 0, 0, time.UTC),
+		},
 	}
 
-	// Create second event
-	input2 := &service.CreateEventInput{
-		TripID:    1,
-		Title:     "Second Event",
-		Category:  domain.CategoryFood,
-		StartTime: time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
-		EndTime:   time.Date(2026, 5, 1, 13, 30, 0, 0, time.UTC),
-	}
-	event2, err := svc.Create(context.Background(), input2)
-	if err != nil {
-		t.Fatalf("Create second event: %v", err)
-	}
-	if event2.Position != 2000 {
-		t.Errorf("Second event position = %d, want 2000", event2.Position)
+	ids := make(map[int]bool)
+	for i, input := range inputs {
+		event, err := svc.Create(context.Background(), input)
+		if err != nil {
+			t.Fatalf("Create event %d: %v", i+1, err)
+		}
+		if event.ID == 0 {
+			t.Errorf("Event %d: ID should be non-zero", i+1)
+		}
+		if ids[event.ID] {
+			t.Errorf("Event %d: duplicate ID %d", i+1, event.ID)
+		}
+		ids[event.ID] = true
 	}
 }
 

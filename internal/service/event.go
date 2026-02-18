@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/simopzz/traccia/internal/domain"
@@ -169,9 +170,14 @@ func (s *EventService) SuggestDefaults(ctx context.Context, tripID int, eventDat
 	events, err := s.repo.ListByTripAndDate(ctx, tripID, eventDate)
 
 	var startTime time.Time
-	if err != nil || len(events) == 0 {
+	switch {
+	case err != nil:
+		slog.WarnContext(ctx, "SuggestDefaults: failed to list events, using 9:00 AM default",
+			"trip_id", tripID, "error", err)
 		startTime = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), 9, 0, 0, 0, eventDate.Location())
-	} else {
+	case len(events) == 0:
+		startTime = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), 9, 0, 0, 0, eventDate.Location())
+	default:
 		// Find the event with the latest EndTime (not last-by-position)
 		latestEnd := events[0].EndTime
 		for i := range events[1:] {
