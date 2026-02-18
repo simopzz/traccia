@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/simopzz/traccia/internal/domain"
@@ -12,6 +13,12 @@ type EventStore interface {
 	domain.EventRepository
 	GetLastEventByTrip(ctx context.Context, tripID int) (*domain.Event, error)
 }
+
+// Default durations for smart time defaults per event category.
+const (
+	DefaultActivityDuration = 2 * time.Hour
+	DefaultFoodDuration     = 90 * time.Minute
+)
 
 type EventService struct {
 	repo EventStore
@@ -149,10 +156,50 @@ func (s *EventService) Delete(ctx context.Context, id int) error {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *EventService) SuggestStartTime(ctx context.Context, tripID int) time.Time {
-	lastEvent, err := s.repo.GetLastEventByTrip(ctx, tripID)
-	if err != nil {
-		return time.Now().Truncate(time.Hour).Add(time.Hour)
+// EventDefaults holds suggested start and end times for a new event.
+type EventDefaults struct {
+	StartTime time.Time
+	EndTime   time.Time
+}
+
+// SuggestDefaults returns smart time defaults for a new event on a given day.
+// If the day has existing events, start time = latest end time among them.
+// If no events exist, start time = 9:00 AM on that date.
+// End time = start time + category-based duration.
+func (s *EventService) SuggestDefaults(ctx context.Context, tripID int, eventDate time.Time, category domain.EventCategory) EventDefaults {
+	events, err := s.repo.ListByTripAndDate(ctx, tripID, eventDate)
+
+	var startTime time.Time
+	switch {
+	case err != nil:
+		slog.WarnContext(ctx, "SuggestDefaults: failed to list events, using 9:00 AM default",
+			"trip_id", tripID, "error", err)
+		startTime = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), 9, 0, 0, 0, eventDate.Location())
+	case len(events) == 0:
+		startTime = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), 9, 0, 0, 0, eventDate.Location())
+	default:
+		// Find the event with the latest EndTime (not last-by-position)
+		latestEnd := events[0].EndTime
+		for i := range events[1:] {
+			if events[i+1].EndTime.After(latestEnd) {
+				latestEnd = events[i+1].EndTime
+			}
+		}
+		startTime = latestEnd
 	}
-	return lastEvent.EndTime
+
+	duration := durationForCategory(category)
+	return EventDefaults{
+		StartTime: startTime,
+		EndTime:   startTime.Add(duration),
+	}
+}
+
+func durationForCategory(category domain.EventCategory) time.Duration {
+	switch category {
+	case domain.CategoryFood:
+		return DefaultFoodDuration
+	default:
+		return DefaultActivityDuration
+	}
 }

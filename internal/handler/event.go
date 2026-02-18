@@ -2,8 +2,11 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
@@ -11,6 +14,31 @@ import (
 	"github.com/simopzz/traccia/internal/domain"
 	"github.com/simopzz/traccia/internal/service"
 )
+
+// EventFormData is used for both initial render and error re-render of the event creation form.
+type EventFormData struct {
+	Errors    map[string]string
+	Date      string // "2006-01-02"
+	Category  string
+	Title     string
+	Location  string
+	StartTime string // "HH:MM"
+	EndTime   string // "HH:MM"
+	Notes     string
+	TripID    int
+	Pinned    bool
+}
+
+// renderEventFormError sends a 422 response with the appropriate form template.
+// HTMX requests get the Sheet fragment; direct browser submissions get the full page.
+func renderEventFormError(w http.ResponseWriter, r *http.Request, data *EventFormData) {
+	w.WriteHeader(http.StatusUnprocessableEntity)
+	if r.Header.Get("HX-Request") == "true" {
+		templ.Handler(EventCreateForm(data)).ServeHTTP(w, r)
+	} else {
+		templ.Handler(EventNewPage(data)).ServeHTTP(w, r)
+	}
+}
 
 type EventHandler struct {
 	eventService *service.EventService
@@ -30,8 +58,37 @@ func (h *EventHandler) NewPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	suggestedStart := h.eventService.SuggestStartTime(r.Context(), tripID)
-	templ.Handler(EventNewPage(tripID, suggestedStart)).ServeHTTP(w, r)
+	dateStr := r.URL.Query().Get("date")
+	category := r.URL.Query().Get("category")
+	if category == "" {
+		category = string(domain.CategoryActivity)
+	}
+
+	eventDate := parseDate(dateStr)
+	if eventDate.IsZero() {
+		eventDate = time.Now()
+		dateStr = eventDate.Format("2006-01-02")
+	} else if dateStr == "" {
+		dateStr = eventDate.Format("2006-01-02")
+	}
+
+	defaults := h.eventService.SuggestDefaults(r.Context(), tripID, eventDate, domain.EventCategory(category))
+
+	formData := &EventFormData{
+		TripID:    tripID,
+		Date:      dateStr,
+		Category:  category,
+		StartTime: defaults.StartTime.Format("15:04"),
+		EndTime:   defaults.EndTime.Format("15:04"),
+	}
+
+	// Dual-path: HTMX request → Sheet fragment; otherwise → full page fallback
+	if r.Header.Get("HX-Request") == "true" {
+		templ.Handler(EventCreateForm(formData)).ServeHTTP(w, r)
+		return
+	}
+
+	templ.Handler(EventNewPage(formData)).ServeHTTP(w, r)
 }
 
 func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -47,27 +104,117 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	input := &service.CreateEventInput{
+	dateStr := r.FormValue("date")
+	category := r.FormValue("category")
+	title := r.FormValue("title")
+	location := r.FormValue("location")
+	startTimeStr := r.FormValue("start_time")
+	endTimeStr := r.FormValue("end_time")
+	notes := r.FormValue("notes")
+	pinned := r.FormValue("pinned") == "on" || r.FormValue("pinned") == "true"
+
+	formData := &EventFormData{
 		TripID:    tripID,
-		Title:     r.FormValue("title"),
-		Category:  domain.EventCategory(r.FormValue("category")),
-		Location:  r.FormValue("location"),
-		StartTime: parseDateTime(r.FormValue("start_time")),
-		EndTime:   parseDateTime(r.FormValue("end_time")),
-		Notes:     r.FormValue("notes"),
-		Pinned:    r.FormValue("pinned") == "true",
+		Date:      dateStr,
+		Category:  category,
+		Title:     title,
+		Location:  location,
+		StartTime: startTimeStr,
+		EndTime:   endTimeStr,
+		Notes:     notes,
+		Pinned:    pinned,
 	}
 
-	_, err = h.eventService.Create(r.Context(), input)
+	// Handler pre-validates required fields for field-level errors
+	formErrors := make(map[string]string)
+	if title == "" {
+		formErrors["title"] = "Title is required"
+	}
+	if startTimeStr == "" {
+		formErrors["start_time"] = "Start time is required"
+	}
+	if endTimeStr == "" {
+		formErrors["end_time"] = "End time is required"
+	}
+	if dateStr == "" {
+		formErrors["date"] = "Date is required"
+	}
+	if category != "" && category != string(domain.CategoryActivity) && category != string(domain.CategoryFood) {
+		formErrors["category"] = "Only Activity and Food events are currently supported"
+	}
+
+	if len(formErrors) > 0 {
+		formData.Errors = formErrors
+		renderEventFormError(w, r, formData)
+		return
+	}
+
+	startTime, err := parseDateAndTime(dateStr, startTimeStr)
+	if err != nil {
+		formErrors["start_time"] = "Invalid start time format"
+		formData.Errors = formErrors
+		renderEventFormError(w, r, formData)
+		return
+	}
+
+	endTime, err := parseDateAndTime(dateStr, endTimeStr)
+	if err != nil {
+		formErrors["end_time"] = "Invalid end time format"
+		formData.Errors = formErrors
+		renderEventFormError(w, r, formData)
+		return
+	}
+
+	input := &service.CreateEventInput{
+		TripID:    tripID,
+		Title:     title,
+		Category:  domain.EventCategory(category),
+		Location:  location,
+		StartTime: startTime,
+		EndTime:   endTime,
+		Notes:     notes,
+		Pinned:    pinned,
+	}
+
+	event, err := h.eventService.Create(r.Context(), input)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			// Strip the domain error prefix to avoid leaking internals to the UI
+			formErrors["general"] = strings.TrimPrefix(err.Error(), "invalid input: ")
+			formData.Errors = formErrors
+			renderEventFormError(w, r, formData)
 			return
 		}
 		http.Error(w, "Failed to create event", http.StatusInternalServerError)
 		return
 	}
 
+	// HTMX success path: return full day HTML with retarget headers
+	if r.Header.Get("HX-Request") == "true" {
+		eventDateStr := event.EventDate.Format("2006-01-02")
+
+		// Fetch all events for this day to render the full day
+		events, err := h.eventService.ListByTripAndDate(r.Context(), tripID, event.EventDate)
+		if err != nil {
+			http.Error(w, "Failed to load events", http.StatusInternalServerError)
+			return
+		}
+
+		dayData := TimelineDayData{
+			Date:   event.EventDate,
+			Events: events,
+		}
+
+		// Set HTMX response headers for retarget to day container
+		w.Header().Set("HX-Retarget", fmt.Sprintf("#day-%s", eventDateStr))
+		w.Header().Set("HX-Reswap", "outerHTML")
+		w.Header().Set("HX-Trigger", `{"close-sheet": true}`)
+
+		templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
+		return
+	}
+
+	// Non-HTMX fallback: redirect
 	http.Redirect(w, r, "/trips/"+tripIDStr, http.StatusSeeOther)
 }
 

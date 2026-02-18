@@ -13,6 +13,13 @@
   --color-warning: #f59e0b;
   --color-danger: #f43f5e;
 
+  /* templui semantic colors (shadcn convention) */
+  --color-background: #ffffff;
+  --color-foreground: #0f172a;
+  --color-muted-foreground: #64748b;
+  --color-accent: #f1f5f9;
+  --color-ring: #008080;
+
   /* Font */
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }

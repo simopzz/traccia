@@ -1,0 +1,219 @@
+package handler
+
+import (
+	"fmt"
+	"github.com/simopzz/traccia/internal/components/icon"
+)
+
+// categoryIcon maps event categories to their Lucide icon names for the TypeSelector.
+var categoryIcons = map[string]func(...icon.Props) templ.Component{
+	"activity": icon.MapPin,
+	"food":     icon.Utensils,
+	"lodging":  icon.Bed,
+	"transit":  icon.Bus,
+	"flight":   icon.Plane,
+}
+
+var categoryLabels = map[string]string{
+	"activity": "Activity",
+	"food":     "Food",
+	"lodging":  "Lodging",
+	"transit":  "Transit",
+	"flight":   "Flight",
+}
+
+// enabledCategories lists the categories available for creation in this story.
+var enabledCategories = map[string]bool{
+	"activity": true,
+	"food":     true,
+}
+
+templ TypeSelector(selected string) {
+	<div
+		x-data={ fmt.Sprintf(`{ selected: '%s' }`, selected) }
+		role="radiogroup"
+		aria-label="Event type"
+		class="flex gap-2 mb-6"
+		x-on:keydown.arrowleft.prevent="const r=[...$el.querySelectorAll('button[role=radio]:not([disabled])')];const i=r.indexOf(document.activeElement);r[(i-1+r.length)%r.length]?.focus()"
+		x-on:keydown.arrowright.prevent="const r=[...$el.querySelectorAll('button[role=radio]:not([disabled])')];const i=r.indexOf(document.activeElement);r[(i+1)%r.length]?.focus()"
+	>
+		for _, cat := range []string{"activity", "food", "lodging", "transit", "flight"} {
+			if enabledCategories[cat] {
+				<button
+					type="button"
+					role="radio"
+					x-bind:aria-checked={ fmt.Sprintf("selected === '%s'", cat) }
+					x-on:click={ fmt.Sprintf("selected = '%s'; $refs.categoryInput.value = '%s'", cat, cat) }
+					x-bind:class={ fmt.Sprintf("selected === '%s' ? 'border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] bg-brand/5' : 'border-slate-300'", cat) }
+					class="flex flex-col items-center gap-1 p-3 border-2 transition-all min-w-[56px] hover:border-slate-900"
+					aria-label={ categoryLabels[cat] }
+				>
+					@categoryIcons[cat](icon.Props{Size: 20})
+					<span class="text-[11px] font-bold uppercase tracking-wide">{ categoryLabels[cat] }</span>
+				</button>
+			} else {
+				<button
+					type="button"
+					role="radio"
+					aria-checked="false"
+					aria-disabled="true"
+					disabled
+					class="flex flex-col items-center gap-1 p-3 border-2 border-slate-200 opacity-40 cursor-not-allowed min-w-[56px]"
+					title="Coming in a future update"
+				>
+					@categoryIcons[cat](icon.Props{Size: 20})
+					<span class="text-[11px] font-bold uppercase tracking-wide">{ categoryLabels[cat] }</span>
+				</button>
+			}
+		}
+		<input type="hidden" name="category" x-ref="categoryInput" value={ selected }/>
+	</div>
+}
+
+func fieldErrorClass(errors map[string]string, field string) string {
+	if errors != nil {
+		if _, ok := errors[field]; ok {
+			return "border-rose-500"
+		}
+	}
+	return "border-slate-300"
+}
+
+templ EventCreateForm(data *EventFormData) {
+	<div class="p-5">
+		if data.Errors != nil && data.Errors["general"] != "" {
+			<div class="mb-4 p-3 bg-rose-50 border-2 border-rose-400 text-rose-700 text-sm font-medium">
+				{ data.Errors["general"] }
+			</div>
+		}
+		<h2 class="text-xl font-bold mb-1 text-slate-900">Add Event</h2>
+		<p class="text-xs text-slate-500 mb-5 uppercase tracking-wide font-medium">{ data.Date }</p>
+		<form
+			hx-post={ fmt.Sprintf("/trips/%d/events", data.TripID) }
+			hx-target="#sheet-form"
+			hx-swap="innerHTML"
+		>
+			@TypeSelector(data.Category)
+			<input type="hidden" name="date" value={ data.Date }/>
+			<!-- Title -->
+			<div class="mb-4">
+				<label for="sheet-title" class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">
+					Title <span class="text-rose-500">*</span>
+				</label>
+				<input
+					type="text"
+					id="sheet-title"
+					name="title"
+					value={ data.Title }
+					required
+					class={ "w-full px-3 py-2 border-2 bg-white text-sm focus:outline-none focus:border-brand focus:shadow-[2px_2px_0px_0px_#008080]", fieldErrorClass(data.Errors, "title") }
+					if data.Errors != nil && data.Errors["title"] != "" {
+						aria-describedby="title-error"
+						aria-invalid="true"
+					}
+				/>
+				if data.Errors != nil && data.Errors["title"] != "" {
+					<p id="title-error" class="mt-1 text-sm text-rose-600 font-medium">{ data.Errors["title"] }</p>
+				}
+			</div>
+			<!-- Location -->
+			<div class="mb-4">
+				<label for="sheet-location" class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">Location</label>
+				<input
+					type="text"
+					id="sheet-location"
+					name="location"
+					value={ data.Location }
+					class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm focus:outline-none focus:border-brand focus:shadow-[2px_2px_0px_0px_#008080]"
+				/>
+			</div>
+			<!-- Time inputs -->
+			<div class="grid grid-cols-2 gap-4 mb-4">
+				<div>
+					<label for="sheet-start-time" class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">
+						Start <span class="text-rose-500">*</span>
+					</label>
+					<input
+						type="time"
+						id="sheet-start-time"
+						name="start_time"
+						value={ data.StartTime }
+						required
+						class={ "w-full px-3 py-2 border-2 bg-white text-sm tabular-nums focus:outline-none focus:border-brand focus:shadow-[2px_2px_0px_0px_#008080]", fieldErrorClass(data.Errors, "start_time") }
+						if data.Errors != nil && data.Errors["start_time"] != "" {
+							aria-describedby="start-time-error"
+							aria-invalid="true"
+						}
+					/>
+					if data.Errors != nil && data.Errors["start_time"] != "" {
+						<p id="start-time-error" class="mt-1 text-sm text-rose-600 font-medium">{ data.Errors["start_time"] }</p>
+					}
+				</div>
+				<div>
+					<label for="sheet-end-time" class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">
+						End <span class="text-rose-500">*</span>
+					</label>
+					<input
+						type="time"
+						id="sheet-end-time"
+						name="end_time"
+						value={ data.EndTime }
+						required
+						class={ "w-full px-3 py-2 border-2 bg-white text-sm tabular-nums focus:outline-none focus:border-brand focus:shadow-[2px_2px_0px_0px_#008080]", fieldErrorClass(data.Errors, "end_time") }
+						if data.Errors != nil && data.Errors["end_time"] != "" {
+							aria-describedby="end-time-error"
+							aria-invalid="true"
+						}
+					/>
+					if data.Errors != nil && data.Errors["end_time"] != "" {
+						<p id="end-time-error" class="mt-1 text-sm text-rose-600 font-medium">{ data.Errors["end_time"] }</p>
+					}
+				</div>
+			</div>
+			<!-- Notes -->
+			<div class="mb-4">
+				<label for="sheet-notes" class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">Notes</label>
+				<textarea
+					id="sheet-notes"
+					name="notes"
+					rows="3"
+					placeholder="Optional notes..."
+					class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm focus:outline-none focus:border-brand focus:shadow-[2px_2px_0px_0px_#008080]"
+				>{ data.Notes }</textarea>
+			</div>
+			<!-- Pinned toggle -->
+			<div class="mb-6 pb-6 border-b-2 border-slate-200">
+				<label class="flex items-center gap-3 text-sm text-slate-700 cursor-pointer font-medium">
+					<span class="relative inline-flex items-center">
+						<input
+							type="checkbox"
+							name="pinned"
+							value="on"
+							checked?={ data.Pinned }
+							class="peer sr-only"
+						/>
+						<span class="w-9 h-5 bg-slate-300 peer-checked:bg-brand transition-colors"></span>
+						<span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white shadow peer-checked:translate-x-4 transition-transform"></span>
+					</span>
+					Pin this event
+				</label>
+			</div>
+			<!-- Actions -->
+			<div class="flex gap-3">
+				<button
+					type="submit"
+					class="px-5 py-2.5 bg-brand text-white font-bold text-sm uppercase tracking-wide border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] hover:shadow-[4px_4px_0px_0px_#0f172a] hover:-translate-x-px hover:-translate-y-px active:shadow-none active:translate-x-0 active:translate-y-0 transition-all"
+				>
+					Create Event
+				</button>
+				<button
+					type="button"
+					onclick="window.dispatchEvent(new CustomEvent('close-sheet'))"
+					class="px-5 py-2.5 text-slate-600 font-bold text-sm uppercase tracking-wide border-2 border-slate-300 hover:border-slate-900 hover:bg-slate-50 transition-all"
+				>
+					Cancel
+				</button>
+			</div>
+		</form>
+	</div>
+}

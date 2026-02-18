@@ -223,6 +223,107 @@ func TestEventService_Create(t *testing.T) {
 	}
 }
 
+func TestEventService_Create_ActivityCategory(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	input := &service.CreateEventInput{
+		TripID:    1,
+		Title:     "Visit Museum",
+		Category:  domain.CategoryActivity,
+		Location:  "National Museum",
+		StartTime: time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+		Notes:     "Bring camera",
+		Pinned:    false,
+	}
+
+	event, err := svc.Create(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+
+	if event.Category != domain.CategoryActivity {
+		t.Errorf("Category = %q, want %q", event.Category, domain.CategoryActivity)
+	}
+	if event.Location != "National Museum" {
+		t.Errorf("Location = %q, want %q", event.Location, "National Museum")
+	}
+	// Verify EventDate is derived from StartTime
+	wantDate := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	if !event.EventDate.Equal(wantDate) {
+		t.Errorf("EventDate = %v, want %v", event.EventDate, wantDate)
+	}
+}
+
+func TestEventService_Create_FoodCategory(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	input := &service.CreateEventInput{
+		TripID:    1,
+		Title:     "Lunch at Trattoria",
+		Category:  domain.CategoryFood,
+		Location:  "Trastevere",
+		StartTime: time.Date(2026, 5, 1, 12, 30, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 5, 1, 14, 0, 0, 0, time.UTC),
+	}
+
+	event, err := svc.Create(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+
+	if event.Category != domain.CategoryFood {
+		t.Errorf("Category = %q, want %q", event.Category, domain.CategoryFood)
+	}
+	// Verify EventDate is derived from StartTime
+	wantDate := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	if !event.EventDate.Equal(wantDate) {
+		t.Errorf("EventDate = %v, want %v", event.EventDate, wantDate)
+	}
+}
+
+// TestEventService_Create_MultipleEvents verifies that multiple events can be created
+// for the same trip without error and each receives a unique non-zero ID.
+// Position assignment is a repository concern and is tested at the integration level.
+func TestEventService_Create_MultipleEvents(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	inputs := []*service.CreateEventInput{
+		{
+			TripID:    1,
+			Title:     "First Event",
+			Category:  domain.CategoryActivity,
+			StartTime: time.Date(2026, 5, 1, 9, 0, 0, 0, time.UTC),
+			EndTime:   time.Date(2026, 5, 1, 11, 0, 0, 0, time.UTC),
+		},
+		{
+			TripID:    1,
+			Title:     "Second Event",
+			Category:  domain.CategoryFood,
+			StartTime: time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+			EndTime:   time.Date(2026, 5, 1, 13, 30, 0, 0, time.UTC),
+		},
+	}
+
+	ids := make(map[int]bool)
+	for i, input := range inputs {
+		event, err := svc.Create(context.Background(), input)
+		if err != nil {
+			t.Fatalf("Create event %d: %v", i+1, err)
+		}
+		if event.ID == 0 {
+			t.Errorf("Event %d: ID should be non-zero", i+1)
+		}
+		if ids[event.ID] {
+			t.Errorf("Event %d: duplicate ID %d", i+1, event.ID)
+		}
+		ids[event.ID] = true
+	}
+}
+
 func TestEventService_Update(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -274,6 +375,96 @@ func TestEventService_Update(t *testing.T) {
 			}
 			if tt.input.Title != nil && event.Title != *tt.input.Title {
 				t.Errorf("Update() Title = %q, want %q", event.Title, *tt.input.Title)
+			}
+		})
+	}
+}
+
+func TestEventService_SuggestDefaults(t *testing.T) {
+	eventDate := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name          string
+		setup         func(*mockEventRepo)
+		category      domain.EventCategory
+		wantStartHour int
+		wantStartMin  int
+		wantDuration  time.Duration
+	}{
+		{
+			name:          "first event of day defaults to 9:00 AM + activity duration",
+			setup:         func(_ *mockEventRepo) {},
+			category:      domain.CategoryActivity,
+			wantStartHour: 9,
+			wantStartMin:  0,
+			wantDuration:  2 * time.Hour,
+		},
+		{
+			name:          "first event of day defaults to 9:00 AM + food duration",
+			setup:         func(_ *mockEventRepo) {},
+			category:      domain.CategoryFood,
+			wantStartHour: 9,
+			wantStartMin:  0,
+			wantDuration:  90 * time.Minute,
+		},
+		{
+			name: "subsequent event uses latest end time as start",
+			setup: func(r *mockEventRepo) {
+				r.events[1] = &domain.Event{
+					ID:        1,
+					TripID:    1,
+					EventDate: eventDate,
+					StartTime: time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC),
+					EndTime:   time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+				}
+			},
+			category:      domain.CategoryActivity,
+			wantStartHour: 12,
+			wantStartMin:  0,
+			wantDuration:  2 * time.Hour,
+		},
+		{
+			name: "picks latest end time across multiple events",
+			setup: func(r *mockEventRepo) {
+				r.events[1] = &domain.Event{
+					ID:        1,
+					TripID:    1,
+					EventDate: eventDate,
+					StartTime: time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC),
+					EndTime:   time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+					Position:  1000,
+				}
+				r.events[2] = &domain.Event{
+					ID:        2,
+					TripID:    1,
+					EventDate: eventDate,
+					StartTime: time.Date(2026, 5, 1, 8, 0, 0, 0, time.UTC),
+					EndTime:   time.Date(2026, 5, 1, 14, 0, 0, 0, time.UTC),
+					Position:  2000,
+				}
+			},
+			category:      domain.CategoryFood,
+			wantStartHour: 14,
+			wantStartMin:  0,
+			wantDuration:  90 * time.Minute,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := newMockEventRepo()
+			tt.setup(repo)
+			svc := service.NewEventService(repo)
+
+			defaults := svc.SuggestDefaults(context.Background(), 1, eventDate, tt.category)
+
+			if defaults.StartTime.Hour() != tt.wantStartHour || defaults.StartTime.Minute() != tt.wantStartMin {
+				t.Errorf("StartTime = %s, want %02d:%02d", defaults.StartTime.Format("15:04"), tt.wantStartHour, tt.wantStartMin)
+			}
+
+			gotDuration := defaults.EndTime.Sub(defaults.StartTime)
+			if gotDuration != tt.wantDuration {
+				t.Errorf("Duration = %v, want %v", gotDuration, tt.wantDuration)
 			}
 		})
 	}
