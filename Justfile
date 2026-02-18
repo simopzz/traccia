@@ -50,7 +50,7 @@ tidy:
     go mod verify
 
 # Install required tools
-tools:
+tools: tailwind-install
     @command -v air >/dev/null || go install github.com/air-verse/air@latest
     @command -v sqlc >/dev/null || go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
     @command -v templ >/dev/null || go install github.com/a-h/templ/cmd/templ@latest
@@ -58,6 +58,19 @@ tools:
     @command -v goimports >/dev/null || go install golang.org/x/tools/cmd/goimports@latest
     @command -v migrate >/dev/null || go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
     @command -v templui >/dev/null || go install github.com/templui/templui/cmd/templui@latest
+
+# Download Tailwind CSS v4 standalone CLI
+tailwind-install:
+    @mkdir -p bin
+    @if [ ! -f bin/tailwindcss ]; then \
+        echo "Downloading Tailwind CSS v4..."; \
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]'); \
+        ARCH=$(uname -m); \
+        if [ "$ARCH" = "x86_64" ]; then ARCH="x64"; fi; \
+        URL="https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-$OS-$ARCH"; \
+        curl -L $$URL -o bin/tailwindcss; \
+        chmod +x bin/tailwindcss; \
+    fi
 
 # Start PostgreSQL container
 docker-up:

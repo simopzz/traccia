@@ -41,6 +41,10 @@ func parseDateTime(s string) time.Time {
 	return t
 }
 
+func parseDateAndTime(dateStr, timeStr string) (time.Time, error) {
+	return time.Parse("2006-01-02 15:04", dateStr+" "+timeStr)
+}
+
 func getUserID(r *http.Request) *string {
 	// TODO: Extract from Supabase JWT
 	return nil // anonymous for now
