@@ -116,6 +116,29 @@ type UpdateEventInput struct {
 }
 
 func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInput) (*domain.Event, error) {
+	// When both times are in the input, validate immediately (no DB fetch needed).
+	if input.StartTime != nil && input.EndTime != nil && !input.EndTime.After(*input.StartTime) {
+		return nil, fmt.Errorf("%w: end time must be after start time", domain.ErrInvalidInput)
+	}
+	// When only one time is provided, fetch the event to get the other existing
+	// time and validate the combined result before writing.
+	if (input.StartTime != nil) != (input.EndTime != nil) {
+		existing, err := s.repo.GetByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		effectiveStart := existing.StartTime
+		if input.StartTime != nil {
+			effectiveStart = *input.StartTime
+		}
+		effectiveEnd := existing.EndTime
+		if input.EndTime != nil {
+			effectiveEnd = *input.EndTime
+		}
+		if !effectiveEnd.After(effectiveStart) {
+			return nil, fmt.Errorf("%w: end time must be after start time", domain.ErrInvalidInput)
+		}
+	}
 	return s.repo.Update(ctx, id, func(event *domain.Event) *domain.Event {
 		if input.Title != nil {
 			event.Title = *input.Title
@@ -154,6 +177,14 @@ func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInp
 
 func (s *EventService) Delete(ctx context.Context, id int) error {
 	return s.repo.Delete(ctx, id)
+}
+
+func (s *EventService) Restore(ctx context.Context, id int) (*domain.Event, error) {
+	event, err := s.repo.Restore(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("restoring event %d: %w", id, err)
+	}
+	return event, nil
 }
 
 // EventDefaults holds suggested start and end times for a new event.

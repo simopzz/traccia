@@ -12,7 +12,7 @@ import (
 )
 
 const countEventsByTrip = `-- name: CountEventsByTrip :one
-SELECT COUNT(*)::int AS event_count FROM events WHERE trip_id = $1
+SELECT COUNT(*)::int AS event_count FROM events WHERE trip_id = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) CountEventsByTrip(ctx context.Context, tripID int32) (int32, error) {
@@ -27,6 +27,7 @@ SELECT event_date, COUNT(*)::int AS event_count
 FROM events
 WHERE trip_id = $1
   AND (event_date < $2 OR event_date > $3)
+  AND deleted_at IS NULL
 GROUP BY event_date
 ORDER BY event_date
 `
@@ -65,7 +66,7 @@ func (q *Queries) CountEventsByTripGroupedByDate(ctx context.Context, arg CountE
 const createEvent = `-- name: CreateEvent :one
 INSERT INTO events (trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at
+RETURNING id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at
 `
 
 type CreateEventParams struct {
@@ -115,24 +116,13 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
-const deleteEvent = `-- name: DeleteEvent :execrows
-DELETE FROM events WHERE id = $1
-`
-
-func (q *Queries) DeleteEvent(ctx context.Context, id int32) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteEvent, id)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const getEventByID = `-- name: GetEventByID :one
-SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at FROM events WHERE id = $1
+SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at FROM events WHERE id = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) GetEventByID(ctx context.Context, id int32) (Event, error) {
@@ -154,13 +144,14 @@ func (q *Queries) GetEventByID(ctx context.Context, id int32) (Event, error) {
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const getLastEventByTrip = `-- name: GetLastEventByTrip :one
-SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at FROM events
-WHERE trip_id = $1
+SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at FROM events
+WHERE trip_id = $1 AND deleted_at IS NULL
 ORDER BY event_date DESC, end_time DESC
 LIMIT 1
 `
@@ -184,6 +175,7 @@ func (q *Queries) GetLastEventByTrip(ctx context.Context, tripID int32) (Event, 
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -191,7 +183,7 @@ func (q *Queries) GetLastEventByTrip(ctx context.Context, tripID int32) (Event, 
 const getMaxPositionByTripAndDate = `-- name: GetMaxPositionByTripAndDate :one
 SELECT COALESCE(MAX(position), 0)::int AS max_position
 FROM events
-WHERE trip_id = $1 AND event_date = $2
+WHERE trip_id = $1 AND event_date = $2 AND deleted_at IS NULL
 `
 
 type GetMaxPositionByTripAndDateParams struct {
@@ -207,8 +199,8 @@ func (q *Queries) GetMaxPositionByTripAndDate(ctx context.Context, arg GetMaxPos
 }
 
 const listEventsByTrip = `-- name: ListEventsByTrip :many
-SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at FROM events
-WHERE trip_id = $1
+SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at FROM events
+WHERE trip_id = $1 AND deleted_at IS NULL
 ORDER BY event_date ASC, position ASC
 `
 
@@ -237,6 +229,7 @@ func (q *Queries) ListEventsByTrip(ctx context.Context, tripID int32) ([]Event, 
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -249,8 +242,8 @@ func (q *Queries) ListEventsByTrip(ctx context.Context, tripID int32) ([]Event, 
 }
 
 const listEventsByTripAndDate = `-- name: ListEventsByTripAndDate :many
-SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at FROM events
-WHERE trip_id = $1 AND event_date = $2
+SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at FROM events
+WHERE trip_id = $1 AND event_date = $2 AND deleted_at IS NULL
 ORDER BY position ASC
 `
 
@@ -284,6 +277,7 @@ func (q *Queries) ListEventsByTripAndDate(ctx context.Context, arg ListEventsByT
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -295,13 +289,51 @@ func (q *Queries) ListEventsByTripAndDate(ctx context.Context, arg ListEventsByT
 	return items, nil
 }
 
+const restoreEvent = `-- name: RestoreEvent :one
+UPDATE events SET deleted_at = NULL WHERE id = $1
+RETURNING id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at
+`
+
+func (q *Queries) RestoreEvent(ctx context.Context, id int32) (Event, error) {
+	row := q.db.QueryRow(ctx, restoreEvent, id)
+	var i Event
+	err := row.Scan(
+		&i.ID,
+		&i.TripID,
+		&i.EventDate,
+		&i.Title,
+		&i.Category,
+		&i.Location,
+		&i.Latitude,
+		&i.Longitude,
+		&i.StartTime,
+		&i.EndTime,
+		&i.Pinned,
+		&i.Position,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const softDeleteEvent = `-- name: SoftDeleteEvent :exec
+UPDATE events SET deleted_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) SoftDeleteEvent(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, softDeleteEvent, id)
+	return err
+}
+
 const updateEvent = `-- name: UpdateEvent :one
 UPDATE events
 SET title = $2, category = $3, location = $4, latitude = $5, longitude = $6,
     start_time = $7, end_time = $8, pinned = $9, position = $10,
     event_date = $11, notes = $12, updated_at = NOW()
 WHERE id = $1
-RETURNING id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at
+RETURNING id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at
 `
 
 type UpdateEventParams struct {
@@ -351,6 +383,7 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }

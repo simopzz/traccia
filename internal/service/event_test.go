@@ -13,14 +13,16 @@ import (
 // mockEventRepo implements service.EventStore for testing.
 type mockEventRepo struct {
 	events    map[int]*domain.Event
+	deletedAt map[int]bool // tracks soft-deleted events
 	nextID    int
 	lastEvent *domain.Event
 }
 
 func newMockEventRepo() *mockEventRepo {
 	return &mockEventRepo{
-		events: make(map[int]*domain.Event),
-		nextID: 1,
+		events:    make(map[int]*domain.Event),
+		deletedAt: make(map[int]bool),
+		nextID:    1,
 	}
 }
 
@@ -57,8 +59,8 @@ func (m *mockEventRepo) ListByTrip(_ context.Context, tripID int) ([]domain.Even
 
 func (m *mockEventRepo) ListByTripAndDate(_ context.Context, tripID int, date time.Time) ([]domain.Event, error) {
 	var result []domain.Event
-	for _, e := range m.events {
-		if e.TripID == tripID && e.EventDate.Equal(date) {
+	for id, e := range m.events {
+		if e.TripID == tripID && e.EventDate.Equal(date) && !m.deletedAt[id] {
 			result = append(result, *e)
 		}
 	}
@@ -80,8 +82,18 @@ func (m *mockEventRepo) Delete(_ context.Context, id int) error {
 	if _, ok := m.events[id]; !ok {
 		return domain.ErrNotFound
 	}
-	delete(m.events, id)
+	m.deletedAt[id] = true
 	return nil
+}
+
+func (m *mockEventRepo) Restore(_ context.Context, id int) (*domain.Event, error) {
+	e, ok := m.events[id]
+	if !ok || !m.deletedAt[id] {
+		return nil, domain.ErrNotFound
+	}
+	delete(m.deletedAt, id)
+	cp := *e
+	return &cp, nil
 }
 
 func (m *mockEventRepo) CountByTrip(_ context.Context, tripID int) (int, error) {
@@ -510,5 +522,195 @@ func TestEventService_Delete(t *testing.T) {
 				t.Fatalf("Delete() unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+// Tests for Story 1.3: event_date recalculation, soft delete, and restore.
+
+func TestEventService_Update_EventDateRecalculation(t *testing.T) {
+	eventDate := time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)
+	startTime := time.Date(2026, 3, 10, 9, 0, 0, 0, time.UTC)
+	endTime := time.Date(2026, 3, 10, 11, 0, 0, 0, time.UTC)
+
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:        1,
+		TripID:    1,
+		EventDate: eventDate,
+		StartTime: startTime,
+		EndTime:   endTime,
+		Title:     "Test",
+		Category:  domain.CategoryActivity,
+	}
+	svc := service.NewEventService(repo)
+
+	newStart := time.Date(2026, 3, 11, 10, 0, 0, 0, time.UTC)
+	newEnd := time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
+	updated, err := svc.Update(context.Background(), 1, &service.UpdateEventInput{
+		StartTime: &newStart,
+		EndTime:   &newEnd,
+	})
+	if err != nil {
+		t.Fatalf("Update() unexpected error: %v", err)
+	}
+
+	wantDate := time.Date(2026, 3, 11, 0, 0, 0, 0, time.UTC)
+	if !updated.EventDate.Equal(wantDate) {
+		t.Errorf("EventDate = %v, want %v", updated.EventDate, wantDate)
+	}
+}
+
+func TestEventService_Update_EventDateUnchangedWhenOnlyTitleUpdated(t *testing.T) {
+	eventDate := time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)
+	startTime := time.Date(2026, 3, 10, 9, 0, 0, 0, time.UTC)
+
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:        1,
+		TripID:    1,
+		EventDate: eventDate,
+		StartTime: startTime,
+		EndTime:   startTime.Add(2 * time.Hour),
+		Title:     "Old Title",
+		Category:  domain.CategoryActivity,
+	}
+	svc := service.NewEventService(repo)
+
+	updated, err := svc.Update(context.Background(), 1, &service.UpdateEventInput{
+		Title: strPtr("New Title"),
+	})
+	if err != nil {
+		t.Fatalf("Update() unexpected error: %v", err)
+	}
+	if !updated.EventDate.Equal(eventDate) {
+		t.Errorf("EventDate changed unexpectedly: got %v, want %v", updated.EventDate, eventDate)
+	}
+	if updated.Title != "New Title" {
+		t.Errorf("Title = %q, want %q", updated.Title, "New Title")
+	}
+}
+
+func TestEventService_Update_InvalidEndTimeBeforeStartTime(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	start := time.Date(2026, 3, 10, 11, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 3, 10, 9, 0, 0, 0, time.UTC) // before start
+
+	_, err := svc.Update(context.Background(), 1, &service.UpdateEventInput{
+		StartTime: &start,
+		EndTime:   &end,
+	})
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("Update() error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestEventService_Update_NotFound(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	title := "X"
+	_, err := svc.Update(context.Background(), 999, &service.UpdateEventInput{Title: &title})
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("Update() error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestEventService_Update_OnlyStartTimeMovedPastEndTime(t *testing.T) {
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:        1,
+		TripID:    1,
+		EventDate: time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC),
+		StartTime: time.Date(2026, 3, 10, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 3, 10, 11, 0, 0, 0, time.UTC),
+		Title:     "Test",
+		Category:  domain.CategoryActivity,
+	}
+	svc := service.NewEventService(repo)
+
+	// Move StartTime to 12:00, past existing EndTime of 11:00 — no EndTime provided.
+	newStart := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	_, err := svc.Update(context.Background(), 1, &service.UpdateEventInput{
+		StartTime: &newStart,
+	})
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("Update() error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestEventService_DeleteAndRestoreRoundTrip(t *testing.T) {
+	eventDate := time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:        1,
+		TripID:    1,
+		EventDate: eventDate,
+		Title:     "Test Event",
+		Category:  domain.CategoryActivity,
+	}
+	svc := service.NewEventService(repo)
+
+	// Delete (soft)
+	if err := svc.Delete(context.Background(), 1); err != nil {
+		t.Fatalf("Delete() unexpected error: %v", err)
+	}
+
+	// Verify not in ListByTripAndDate
+	events, err := svc.ListByTripAndDate(context.Background(), 1, eventDate)
+	if err != nil {
+		t.Fatalf("ListByTripAndDate() unexpected error: %v", err)
+	}
+	if len(events) != 0 {
+		t.Errorf("expected 0 events after delete, got %d", len(events))
+	}
+
+	// Restore
+	restored, err := svc.Restore(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("Restore() unexpected error: %v", err)
+	}
+	if restored.ID != 1 {
+		t.Errorf("Restore() ID = %d, want 1", restored.ID)
+	}
+
+	// Verify back in ListByTripAndDate
+	events, err = svc.ListByTripAndDate(context.Background(), 1, eventDate)
+	if err != nil {
+		t.Fatalf("ListByTripAndDate() after restore unexpected error: %v", err)
+	}
+	if len(events) != 1 {
+		t.Errorf("expected 1 event after restore, got %d", len(events))
+	}
+}
+
+func TestEventService_Restore_NotFound(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	_, err := svc.Restore(context.Background(), 999)
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("Restore() error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestEventService_ListByTripAndDate_ExcludesSoftDeleted(t *testing.T) {
+	eventDate := time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{ID: 1, TripID: 1, EventDate: eventDate, Title: "Keep"}
+	repo.events[2] = &domain.Event{ID: 2, TripID: 1, EventDate: eventDate, Title: "Deleted"}
+	repo.deletedAt[2] = true
+	svc := service.NewEventService(repo)
+
+	events, err := svc.ListByTripAndDate(context.Background(), 1, eventDate)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].Title != "Keep" {
+		t.Errorf("got event %q, want %q", events[0].Title, "Keep")
 	}
 }

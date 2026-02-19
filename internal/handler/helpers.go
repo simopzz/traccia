@@ -30,17 +30,6 @@ func parseDate(s string) time.Time {
 	return t
 }
 
-func parseDateTime(s string) time.Time {
-	if s == "" {
-		return time.Time{}
-	}
-	t, err := time.Parse("2006-01-02T15:04", s)
-	if err != nil {
-		return time.Time{}
-	}
-	return t
-}
-
 func parseDateAndTime(dateStr, timeStr string) (time.Time, error) {
 	return time.Parse("2006-01-02 15:04", dateStr+" "+timeStr)
 }
