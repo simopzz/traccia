@@ -87,7 +87,7 @@ NFR5: Event reordering operations are atomic — a failed reorder does not leave
 - EventCard: Progressive disclosure via expand/collapse (Collapsible). Context menu (Dropdown) for actions.
 - Sheet panel for event creation (right on desktop, bottom on mobile). Inline editing for modifications.
 - EmptyDayPrompt for days with no events. Empty trip list with "Plan your first trip" CTA.
-- templui components for standard UI (forms, dialogs, toasts, navigation). Custom components for timeline.
+- daisyUI v5 classes for standard UI (forms, dialogs, toasts, navigation). Custom templ components for timeline.
 - Day tabs for switching. Breadcrumb navigation (Trip List → Trip → Day).
 - Smart defaults: start time from preceding event, end time from type-based duration, day from context
 - Undo toast (8s window) for delete actions. No "Are you sure?" for single events. Dialog for trip deletion.

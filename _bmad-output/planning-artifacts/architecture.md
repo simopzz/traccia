@@ -58,7 +58,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 - Go 1.25, chi router, templ templates, HTMX 2.0
 - PostgreSQL 16, pgx/v5 driver, sqlc for type-safe queries
 - golang-migrate for schema migrations
-- Tailwind CSS, templui component library (copy-paste ownership), Alpine.js
+- Tailwind CSS, daisyUI v5 (Tailwind v4 CSS plugin, semantic classes), Alpine.js
 - No SPA framework, no client-side routing, no WebSocket/SSE
 
 **Existing codebase establishes:**
@@ -102,7 +102,8 @@ No starter template evaluation is needed. The traccia v2 codebase was establishe
 
 **Styling Solution:**
 - Tailwind CSS as utility-first engine
-- templui as component library (templ + Tailwind + HTMX native, copy-paste ownership model)
+- daisyUI v5 as CSS plugin (`@plugin "daisyui"` in input.css) — provides semantic component classes (btn, card, badge, modal, drawer, tabs, toast, skeleton, etc.) with no JS runtime and no Go library dependency
+- Custom templ components for traccia-specific UI (EventCard, Sheet panel, TypeSelector)
 - Alpine.js for client-side interactions (form morphing, drag-and-drop)
 
 **Build Tooling:**
@@ -144,9 +145,11 @@ Simpler than UUIDs — smaller index footprint, natural ordering, easier debuggi
 
 Type-safe Go code from raw SQL, no ORM overhead, full SQL expressiveness. Constrains event type polymorphism modeling — sqlc must understand the schema and generate the queries. Handles single-table queries and JOINs well. For the rare complex dynamic query (conditional JOINs based on event type), manual pgx alongside sqlc is acceptable — sqlc for 90%, manual for 10%.
 
-#### ADR-4: templ + HTMX + Alpine.js + templui — ✅ Keep
+#### ADR-4: templ + HTMX + Alpine.js + daisyUI — ✅ Updated
 
-HTMX handles partial page updates for the timeline. Alpine.js handles form morphing (TypeSelector) and drag-and-drop (optimistic UI for NFR2 < 100ms). templ gives type-safe templates. templui provides 40+ stack-native components with copy-paste ownership. No SPA framework needed — the PRD explicitly rules out real-time collaboration.
+HTMX handles partial page updates for the timeline. Alpine.js handles form morphing (TypeSelector) and drag-and-drop (optimistic UI for NFR2 < 100ms). templ gives type-safe templates. daisyUI v5 provides 65 semantic CSS component classes as a Tailwind v4 plugin — no Go library dependency, no class-conflict concerns. Custom templ components are built for traccia-specific UI. No SPA framework needed — the PRD explicitly rules out real-time collaboration.
+
+**Note:** templui was removed; its tailwind-merge-go dependency did not support Tailwind v4 and had no maintained replacement.
 
 #### ADR-5: Updater Pattern — ✅ Keep with Extension
 
@@ -291,7 +294,7 @@ TypeSelector selects event type → Alpine.js toggles visibility of type-specifi
 
 **Event Creation — HTMX Sheet Panel:**
 
-"Add Event" triggers HTMX fetch of Sheet content, pre-populated with defaults: day from current context, start time from preceding event's end time, end time from type-based duration. Sheet slides from right (desktop) or bottom (mobile). templui Sheet component.
+"Add Event" triggers HTMX fetch of Sheet content, pre-populated with defaults: day from current context, start time from preceding event's end time, end time from type-based duration. Sheet slides from right (desktop) or bottom (mobile). Custom templ component using daisyUI Drawer + Alpine.js for toggle state.
 
 ### Infrastructure & Deployment
 
