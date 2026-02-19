@@ -1,6 +1,6 @@
 # Story 1.3: Event Edit, Delete & Detail View
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -464,8 +464,10 @@ claude-sonnet-4-6
 - `internal/handler/routes.go` (modified)
 - `internal/handler/helpers.go` (modified)
 - `static/js/alpine-collapse.min.js` (new)
+- `static/css/app.css` (modified)
 
 ## Change Log
 
 - 2026-02-19: Implemented story 1.3 — event edit, delete, detail view, and undo toast. Added soft delete via migration 002, extended domain/repository/service with Restore, redesigned EventTimelineItem with inline edit mode, updated Update/Delete handlers with HTMX support, added Restore handler and route, added undo toast component, vendored Alpine Collapse plugin. 7 new service tests. (claude-sonnet-4-6)
 - 2026-02-19: Code review fixes — added `hx-disabled-elt` and disabled styling to inline edit/delete buttons for loading states; removed redundant POST route handlers for Update. (gemini-cli)
+- 2026-02-19: Code review fixes (adversarial) — added non-HTMX fallback redirect to Restore handler (H1); added HTMX check to Update handler 422 paths via renderCardError helper, non-HTMX redirects to edit page (M2); fixed service.Update() to validate end>start when only one time is provided by pre-fetching event (M3); documented static/css/app.css in File List (M1); added TestEventService_Update_OnlyStartTimeMovedPastEndTime. (claude-sonnet-4-6)

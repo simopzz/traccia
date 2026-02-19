@@ -310,12 +310,22 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		formErrors["date"] = "Date is required"
 	}
 
+	// renderCardError sends a 422 with the inline edit card (HTMX) or redirects to
+	// the edit page (non-HTMX fallback) so the browser always gets a usable response.
+	renderCardError := func(data EventFormData) {
+		if r.Header.Get("HX-Request") == "true" {
+			w.Header().Set("HX-Retarget", fmt.Sprintf("#event-%d", id))
+			w.Header().Set("HX-Reswap", "outerHTML")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			templ.Handler(EventTimelineItem(*event, &EventCardProps{Editing: true, FormValues: data})).ServeHTTP(w, r)
+		} else {
+			http.Redirect(w, r, fmt.Sprintf("/trips/%s/events/%d/edit", tripIDStr, id), http.StatusSeeOther)
+		}
+	}
+
 	if len(formErrors) > 0 {
 		formData.Errors = formErrors
-		w.Header().Set("HX-Retarget", fmt.Sprintf("#event-%d", id))
-		w.Header().Set("HX-Reswap", "outerHTML")
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		templ.Handler(EventTimelineItem(*event, &EventCardProps{Editing: true, FormValues: formData})).ServeHTTP(w, r)
+		renderCardError(formData)
 		return
 	}
 
@@ -323,10 +333,7 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		formErrors["start_time"] = "Invalid start time format"
 		formData.Errors = formErrors
-		w.Header().Set("HX-Retarget", fmt.Sprintf("#event-%d", id))
-		w.Header().Set("HX-Reswap", "outerHTML")
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		templ.Handler(EventTimelineItem(*event, &EventCardProps{Editing: true, FormValues: formData})).ServeHTTP(w, r)
+		renderCardError(formData)
 		return
 	}
 
@@ -334,10 +341,7 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		formErrors["end_time"] = "Invalid end time format"
 		formData.Errors = formErrors
-		w.Header().Set("HX-Retarget", fmt.Sprintf("#event-%d", id))
-		w.Header().Set("HX-Reswap", "outerHTML")
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		templ.Handler(EventTimelineItem(*event, &EventCardProps{Editing: true, FormValues: formData})).ServeHTTP(w, r)
+		renderCardError(formData)
 		return
 	}
 
@@ -361,10 +365,7 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, domain.ErrInvalidInput) {
 			formErrors["general"] = strings.TrimPrefix(err.Error(), "invalid input: ")
 			formData.Errors = formErrors
-			w.Header().Set("HX-Retarget", fmt.Sprintf("#event-%d", id))
-			w.Header().Set("HX-Reswap", "outerHTML")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			templ.Handler(EventTimelineItem(*event, &EventCardProps{Editing: true, FormValues: formData})).ServeHTTP(w, r)
+			renderCardError(formData)
 			return
 		}
 		http.Error(w, "Failed to update event", http.StatusInternalServerError)
@@ -472,6 +473,11 @@ func (h *EventHandler) Restore(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Error(w, "Failed to restore event", http.StatusInternalServerError)
+		return
+	}
+
+	if r.Header.Get("HX-Request") != "true" {
+		http.Redirect(w, r, "/trips/"+tripIDStr, http.StatusSeeOther)
 		return
 	}
 

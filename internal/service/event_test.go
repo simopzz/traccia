@@ -617,6 +617,29 @@ func TestEventService_Update_NotFound(t *testing.T) {
 	}
 }
 
+func TestEventService_Update_OnlyStartTimeMovedPastEndTime(t *testing.T) {
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:        1,
+		TripID:    1,
+		EventDate: time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC),
+		StartTime: time.Date(2026, 3, 10, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 3, 10, 11, 0, 0, 0, time.UTC),
+		Title:     "Test",
+		Category:  domain.CategoryActivity,
+	}
+	svc := service.NewEventService(repo)
+
+	// Move StartTime to 12:00, past existing EndTime of 11:00 — no EndTime provided.
+	newStart := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	_, err := svc.Update(context.Background(), 1, &service.UpdateEventInput{
+		StartTime: &newStart,
+	})
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("Update() error = %v, want ErrInvalidInput", err)
+	}
+}
+
 func TestEventService_DeleteAndRestoreRoundTrip(t *testing.T) {
 	eventDate := time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)
 	repo := newMockEventRepo()
