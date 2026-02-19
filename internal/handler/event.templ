@@ -134,7 +134,8 @@ templ eventCardInner(event domain.Event, props *EventCardProps) {
 					hx-delete={ fmt.Sprintf("/trips/%d/events/%d", event.TripID, event.ID) }
 					hx-target={ fmt.Sprintf("#day-%s", event.EventDate.Format("2006-01-02")) }
 					hx-swap="outerHTML"
-					class="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-2 border-rose-300 hover:border-rose-500 transition-colors"
+					hx-disabled-elt="this"
+					class="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-2 border-rose-300 hover:border-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Delete
 				</button>
@@ -151,6 +152,7 @@ templ eventCardInner(event domain.Event, props *EventCardProps) {
 				hx-post={ fmt.Sprintf("/trips/%d/events/%d", event.TripID, event.ID) }
 				hx-target={ fmt.Sprintf("#event-%d", event.ID) }
 				hx-swap="outerHTML"
+				hx-disabled-elt="find button"
 			>
 				<input type="hidden" name="_method" value="PUT"/>
 				if props != nil {
@@ -318,14 +320,14 @@ templ eventCardInner(event domain.Event, props *EventCardProps) {
 				<div class="flex gap-2">
 					<button
 						type="submit"
-						class="px-3 py-1.5 text-xs font-bold uppercase tracking-wide bg-brand text-white border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] hover:shadow-[3px_3px_0px_0px_#0f172a] hover:-translate-x-px hover:-translate-y-px active:shadow-none active:translate-x-0 active:translate-y-0 transition-all"
+						class="px-3 py-1.5 text-xs font-bold uppercase tracking-wide bg-brand text-white border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] hover:shadow-[3px_3px_0px_0px_#0f172a] hover:-translate-x-px hover:-translate-y-px active:shadow-none active:translate-x-0 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0"
 					>
 						Save
 					</button>
 					<button
 						type="button"
 						x-on:click="editing = false"
-						class="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600 border-2 border-slate-300 hover:border-slate-900 hover:bg-slate-50 transition-all"
+						class="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600 border-2 border-slate-300 hover:border-slate-900 hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						Cancel
 					</button>

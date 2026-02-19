@@ -468,3 +468,4 @@ claude-sonnet-4-6
 ## Change Log
 
 - 2026-02-19: Implemented story 1.3 — event edit, delete, detail view, and undo toast. Added soft delete via migration 002, extended domain/repository/service with Restore, redesigned EventTimelineItem with inline edit mode, updated Update/Delete handlers with HTMX support, added Restore handler and route, added undo toast component, vendored Alpine Collapse plugin. 7 new service tests. (claude-sonnet-4-6)
+- 2026-02-19: Code review fixes — added `hx-disabled-elt` and disabled styling to inline edit/delete buttons for loading states; removed redundant POST route handlers for Update. (gemini-cli)
