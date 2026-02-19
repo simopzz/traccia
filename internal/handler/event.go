@@ -15,6 +15,13 @@ import (
 	"github.com/simopzz/traccia/internal/service"
 )
 
+// EventCardProps carries edit-mode state for 422 re-renders.
+// Nil means normal view-mode rendering (the common path from TimelineDay).
+type EventCardProps struct {
+	FormValues EventFormData
+	Editing    bool
+}
+
 // EventFormData is used for both initial render and error re-render of the event creation form.
 type EventFormData struct {
 	Errors    map[string]string
@@ -241,6 +248,11 @@ func (h *EventHandler) EditPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	tripIDStr := chi.URLParam(r, "tripID")
+	tripID, err := strconv.Atoi(tripIDStr)
+	if err != nil {
+		http.Error(w, "Invalid trip ID", http.StatusBadRequest)
+		return
+	}
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -248,19 +260,88 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch event first — needed for oldEventDate capture and 422 re-render
+	event, err := h.eventService.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, "Event not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Failed to load event", http.StatusInternalServerError)
+		return
+	}
+	oldEventDate := event.EventDate
+
 	if err = r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
 
+	dateStr := r.FormValue("date")
+	startTimeStr := r.FormValue("start_time")
+	endTimeStr := r.FormValue("end_time")
 	title := r.FormValue("title")
-	category := domain.EventCategory(r.FormValue("category"))
 	location := r.FormValue("location")
-	startTime := parseDateTime(r.FormValue("start_time"))
-	endTime := parseDateTime(r.FormValue("end_time"))
 	notes := r.FormValue("notes")
-	pinned := r.FormValue("pinned") == "true"
+	pinned := r.FormValue("pinned") == "on" || r.FormValue("pinned") == "true"
 
+	formData := EventFormData{
+		TripID:    tripID,
+		Date:      dateStr,
+		Title:     title,
+		Location:  location,
+		StartTime: startTimeStr,
+		EndTime:   endTimeStr,
+		Notes:     notes,
+		Pinned:    pinned,
+	}
+
+	formErrors := make(map[string]string)
+	if title == "" {
+		formErrors["title"] = "Title is required"
+	}
+	if startTimeStr == "" {
+		formErrors["start_time"] = "Start time is required"
+	}
+	if endTimeStr == "" {
+		formErrors["end_time"] = "End time is required"
+	}
+	if dateStr == "" {
+		formErrors["date"] = "Date is required"
+	}
+
+	if len(formErrors) > 0 {
+		formData.Errors = formErrors
+		w.Header().Set("HX-Retarget", fmt.Sprintf("#event-%d", id))
+		w.Header().Set("HX-Reswap", "outerHTML")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		templ.Handler(EventTimelineItem(*event, &EventCardProps{Editing: true, FormValues: formData})).ServeHTTP(w, r)
+		return
+	}
+
+	startTime, err := parseDateAndTime(dateStr, startTimeStr)
+	if err != nil {
+		formErrors["start_time"] = "Invalid start time format"
+		formData.Errors = formErrors
+		w.Header().Set("HX-Retarget", fmt.Sprintf("#event-%d", id))
+		w.Header().Set("HX-Reswap", "outerHTML")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		templ.Handler(EventTimelineItem(*event, &EventCardProps{Editing: true, FormValues: formData})).ServeHTTP(w, r)
+		return
+	}
+
+	endTime, err := parseDateAndTime(dateStr, endTimeStr)
+	if err != nil {
+		formErrors["end_time"] = "Invalid end time format"
+		formData.Errors = formErrors
+		w.Header().Set("HX-Retarget", fmt.Sprintf("#event-%d", id))
+		w.Header().Set("HX-Reswap", "outerHTML")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		templ.Handler(EventTimelineItem(*event, &EventCardProps{Editing: true, FormValues: formData})).ServeHTTP(w, r)
+		return
+	}
+
+	category := event.Category // preserve existing category
 	input := &service.UpdateEventInput{
 		Title:     &title,
 		Category:  &category,
@@ -271,13 +352,48 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Pinned:    &pinned,
 	}
 
-	_, err = h.eventService.Update(r.Context(), id, input)
+	updatedEvent, err := h.eventService.Update(r.Context(), id, input)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			http.Error(w, "Event not found", http.StatusNotFound)
 			return
 		}
+		if errors.Is(err, domain.ErrInvalidInput) {
+			formErrors["general"] = strings.TrimPrefix(err.Error(), "invalid input: ")
+			formData.Errors = formErrors
+			w.Header().Set("HX-Retarget", fmt.Sprintf("#event-%d", id))
+			w.Header().Set("HX-Reswap", "outerHTML")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			templ.Handler(EventTimelineItem(*event, &EventCardProps{Editing: true, FormValues: formData})).ServeHTTP(w, r)
+			return
+		}
 		http.Error(w, "Failed to update event", http.StatusInternalServerError)
+		return
+	}
+
+	// HTMX path
+	if r.Header.Get("HX-Request") == "true" {
+		// Cross-day: full-page redirect
+		if !updatedEvent.EventDate.Equal(oldEventDate) {
+			w.Header().Set("HX-Redirect", "/trips/"+tripIDStr)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Same day: render TimelineDay with retarget
+		events, err := h.eventService.ListByTripAndDate(r.Context(), tripID, updatedEvent.EventDate)
+		if err != nil {
+			http.Error(w, "Failed to load events", http.StatusInternalServerError)
+			return
+		}
+		newEventDateStr := updatedEvent.EventDate.Format("2006-01-02")
+		dayData := TimelineDayData{
+			Date:   updatedEvent.EventDate,
+			Events: events,
+		}
+		w.Header().Set("HX-Retarget", fmt.Sprintf("#day-%s", newEventDateStr))
+		w.Header().Set("HX-Reswap", "outerHTML")
+		templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
 		return
 	}
 
@@ -286,6 +402,11 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	tripIDStr := chi.URLParam(r, "tripID")
+	tripID, err := strconv.Atoi(tripIDStr)
+	if err != nil {
+		http.Error(w, "Invalid trip ID", http.StatusBadRequest)
+		return
+	}
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -293,14 +414,79 @@ func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.eventService.Delete(r.Context(), id); err != nil {
+	// Fetch before deleting to get EventDate for response
+	event, err := h.eventService.GetByID(r.Context(), id)
+	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			http.Error(w, "Event not found", http.StatusNotFound)
 			return
 		}
+		http.Error(w, "Failed to load event", http.StatusInternalServerError)
+		return
+	}
+	eventDate := event.EventDate
+
+	if err := h.eventService.Delete(r.Context(), id); err != nil {
 		http.Error(w, "Failed to delete event", http.StatusInternalServerError)
 		return
 	}
 
+	// HTMX path: return updated day HTML + trigger undo toast
+	if r.Header.Get("HX-Request") == "true" {
+		events, err := h.eventService.ListByTripAndDate(r.Context(), tripID, eventDate)
+		if err != nil {
+			http.Error(w, "Failed to load events", http.StatusInternalServerError)
+			return
+		}
+		dayData := TimelineDayData{
+			Date:   eventDate,
+			Events: events,
+		}
+		eventDateStr := eventDate.Format("2006-01-02")
+		w.Header().Set("HX-Trigger", fmt.Sprintf(`{"showUndoToast": {"eventId": %d, "tripId": %d, "eventDate": %q}}`, id, tripID, eventDateStr))
+		templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
+		return
+	}
+
 	http.Redirect(w, r, "/trips/"+tripIDStr, http.StatusSeeOther)
+}
+
+func (h *EventHandler) Restore(w http.ResponseWriter, r *http.Request) {
+	tripIDStr := chi.URLParam(r, "tripID")
+	tripID, err := strconv.Atoi(tripIDStr)
+	if err != nil {
+		http.Error(w, "Invalid trip ID", http.StatusBadRequest)
+		return
+	}
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid event ID", http.StatusBadRequest)
+		return
+	}
+
+	event, err := h.eventService.Restore(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, "Event not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Failed to restore event", http.StatusInternalServerError)
+		return
+	}
+
+	events, err := h.eventService.ListByTripAndDate(r.Context(), tripID, event.EventDate)
+	if err != nil {
+		http.Error(w, "Failed to load events", http.StatusInternalServerError)
+		return
+	}
+	dayData := TimelineDayData{
+		Date:   event.EventDate,
+		Events: events,
+	}
+	eventDateStr := event.EventDate.Format("2006-01-02")
+	w.Header().Set("HX-Retarget", fmt.Sprintf("#day-%s", eventDateStr))
+	w.Header().Set("HX-Reswap", "outerHTML")
+	w.Header().Set("HX-Trigger", `{"hideUndoToast": true}`)
+	templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
 }

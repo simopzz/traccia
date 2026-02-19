@@ -129,15 +129,22 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 	return &result, nil
 }
 
+// Delete soft-deletes the event (sets deleted_at). Events are permanently removed
+// when their parent trip is deleted via ON DELETE CASCADE.
 func (s *EventStore) Delete(ctx context.Context, id int) error {
-	rows, err := s.queries.DeleteEvent(ctx, int32(id))
+	return s.queries.SoftDeleteEvent(ctx, int32(id))
+}
+
+func (s *EventStore) Restore(ctx context.Context, id int) (*domain.Event, error) {
+	row, err := s.queries.RestoreEvent(ctx, int32(id))
 	if err != nil {
-		return err
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
 	}
-	if rows == 0 {
-		return domain.ErrNotFound
-	}
-	return nil
+	event := eventRowToDomain(&row)
+	return &event, nil
 }
 
 func (s *EventStore) GetLastEventByTrip(ctx context.Context, tripID int) (*domain.Event, error) {

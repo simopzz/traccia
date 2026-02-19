@@ -39,6 +39,7 @@ func NewRouter(tripHandler *TripHandler, eventHandler *EventHandler) http.Handle
 		r.Put("/trips/{tripID}/events/{id}", eventHandler.Update)
 		r.Post("/trips/{tripID}/events/{id}", eventHandler.Update) // for form method override
 		r.Delete("/trips/{tripID}/events/{id}", eventHandler.Delete)
+		r.Post("/trips/{tripID}/events/{id}/restore", eventHandler.Restore)
 	})
 
 	return r

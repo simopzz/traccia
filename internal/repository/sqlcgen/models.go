@@ -24,6 +24,7 @@ type Event struct {
 	Notes     pgtype.Text
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
 }
 
 type FlightDetail struct {
