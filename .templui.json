@@ -1,7 +1,0 @@
-{
-  "componentsDir": "internal/components",
-  "utilsDir": "internal/components/utils",
-  "moduleName": "github.com/simopzz/traccia",
-  "jsDir": "static/js",
-  "jsPublicPath": "/static/js"
-}

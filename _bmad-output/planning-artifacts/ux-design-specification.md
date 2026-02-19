@@ -34,7 +34,7 @@ project_name: traccia
 
 traccia is a planning logistics layer for travelers — not a booking tool, not an AI generator. It fills the gap between "I've booked my flights and hotel" and "I know what I'm doing each day." Users bring their own bookings and intentions; traccia organizes them into a realistic, executable timeline.
 
-Built with Go, HTMX, templ, Tailwind CSS, and Alpine.js — a server-side rendered stack with no SPA framework. The interface delivers HTML fragments via HTMX partial updates, with Alpine.js handling lightweight client-side interactions (drag-and-drop, modals, form defaults). templui provides the component foundation (templ + Tailwind + HTMX native, copy-paste ownership).
+Built with Go, HTMX, templ, Tailwind CSS, and Alpine.js — a server-side rendered stack with no SPA framework. The interface delivers HTML fragments via HTMX partial updates, with Alpine.js handling lightweight client-side interactions (drag-and-drop, modals, form defaults). daisyUI v5 provides the component foundation as a Tailwind v4 CSS plugin (semantic classes: btn, card, badge, modal, drawer, tabs, toast, etc.). Custom templ components are built for traccia-specific UI.
 
 Core design principles:
 - *"The plan is disposable, the traveler is sovereign."*
@@ -220,26 +220,27 @@ The foundational action is **adding an event to a day**. If this feels clunky, n
 
 ### Design System Choice
 
-**Tailwind CSS + templui** — a themeable, copy-paste component library purpose-built for the Go templ + HTMX stack. Components are owned source code, not external dependencies. templui provides 40+ production-ready components (forms, modals, toasts, date/time pickers, navigation) with vanilla JS behaviors. Custom components (timeline, event cards, day views) are built on Tailwind utilities following the same patterns.
+**Tailwind CSS + daisyUI v5** — a Tailwind v4 CSS plugin that provides 65 semantic component classes (btn, card, badge, modal, drawer, tabs, toast, skeleton, divider, input, fieldset, etc.) with no runtime JS dependency. Custom templ components are built for traccia-specific UI (timeline, event cards, day views) using the same Tailwind utilities and daisyUI design tokens.
 
 ### Rationale for Selection
 
-- **Stack-native:** templui is the only component library built specifically for Go templ + HTMX. No adapter layers, no framework mismatches. Components render server-side as templ functions.
-- **Copy-paste ownership:** Components are copied into the project via CLI (`templui add button card`). Full source control — no version lock-in, no breaking updates from upstream. Matches the project's "no external runtime dependencies" philosophy.
-- **Themeable via CSS custom properties:** templui uses oklch color variables in `assets/css/input.css`. The Swiss/Brutalist direction can be applied by overriding these variables and extending Tailwind's config — no forking component internals.
-- **Covers standard UI needs:** Forms, inputs, modals, toasts, date pickers, dropdowns, tabs, alerts, tooltips — all provided. The team builds only what's unique to traccia (timeline components, event cards, day views).
+- **Tailwind v4 native:** daisyUI v5 is built specifically for Tailwind v4's CSS-first configuration model. A single `@plugin "daisyui"` directive in input.css activates all components — no Go library required.
+- **No class-conflict concerns:** daisyUI uses semantic class names (`btn`, `card`, `badge`) rather than composing utility overrides, eliminating the need for a tailwind-merge resolver.
+- **Covers standard UI needs:** Buttons, inputs, modals, toasts, drawers (sheet panels), tabs, alerts, tooltips, dropdowns — all provided as CSS classes usable in any templ template.
+- **Themeable via CSS custom properties:** daisyUI v5 exposes `--color-primary`, `--color-base-100`, etc. The Swiss/Brutalist direction is applied by overriding these variables in input.css alongside the existing `--color-brand` tokens.
+- **Maintained and widely used:** daisyUI is the most popular Tailwind component library. v5 actively targets Tailwind v4.
 
 ### Implementation Approach
 
-- **JS coexistence:** templui's vanilla JS handles its own component behaviors (modal open/close, toast lifecycle, dropdown positioning). Alpine.js handles project-specific interactions (drag-and-drop reordering, type-specific form morphing, complex client-side state). They operate on separate DOM elements without conflict.
-- **Theme layer:** Override templui's default CSS variables to implement the Swiss/Brutalist direction — high-contrast colors, semantic signal palette, typographic hierarchy. The theme is defined once in the CSS input file and applies globally.
-- **Custom component convention:** Project-specific components (TimelineDay, EventCard, DayOverview) follow templui's patterns — templ functions accepting typed props, Tailwind utilities for styling, HTMX attributes for server interaction. They look and feel like part of the same system.
-- **Print stylesheet:** Tailwind's `print:` modifiers handle Survival Export styling. templui components used in print context (if any) get print-specific overrides in the same CSS file.
+- **No JS runtime:** Most daisyUI components are pure CSS (btn, card, badge, skeleton, divider, tabs). Interactive components (modal, drawer, toast) use the native `<dialog>` element or checkbox-driven patterns — wired via small `hx-on` attributes or Alpine.js where needed.
+- **Theme layer:** Override daisyUI's CSS variables in input.css to implement the Swiss/Brutalist direction — high-contrast colors, semantic signal palette, typographic hierarchy. Custom `--color-brand`, `--color-success`, `--color-warning`, `--color-danger` tokens already defined.
+- **Custom component convention:** Project-specific components (TimelineDay, EventCard, DayOverview) are templ functions accepting typed props, using Tailwind utilities and daisyUI classes for styling, HTMX attributes for server interaction.
+- **Print stylesheet:** Tailwind's `print:` modifiers handle Survival Export styling. daisyUI components get print-specific overrides in the same CSS file if needed.
 
 ### Customization Strategy
 
 **Theme overrides (CSS custom properties):**
-- Neutral palette: high-contrast slate/white base matching Swiss design (replace templui defaults)
+- Neutral palette: high-contrast slate/white base matching Swiss design (override daisyUI base colors)
 - Semantic signal colors: `signal-safe` (emerald), `signal-warn` (amber), `signal-risk` (rose) — reserved strictly for logistical status
 - Brand accent: a single accent color (indigo or similar) for primary actions, used sparingly
 - Dark mode: deferred — not an MVP concern, but templui supports it natively when ready
@@ -575,19 +576,19 @@ graph LR
 
 ## Component Strategy
 
-### Design System Components (templui)
+### Design System Components (daisyUI v5)
 
-templui provides 43 components. The following are directly usable for traccia's needs:
+daisyUI v5 provides 65 semantic component classes via `@plugin "daisyui"`. The following are directly usable for traccia's needs:
 
-**Forms & Input:** Input, Select Box, Textarea, Label, Checkbox, Radio, Switch, Date Picker, Time Picker, Calendar, Button, Form, Tags Input — covers all trip and event CRUD forms.
+**Forms & Input:** `input`, `textarea`, `select`, `checkbox`, `radio`, `toggle`, `fieldset`, `label`, `floating-label`, `btn`, `calendar` — covers all trip and event CRUD forms.
 
-**Feedback & Overlays:** Toast (undo actions, travel-aware messages), Dialog (delete confirmations), Sheet (event creation side panel), Alert (system messages), Tooltip (field hints), Popover (contextual info).
+**Feedback & Overlays:** `toast` (undo actions, travel-aware messages), `modal` via native `<dialog>` (delete confirmations), `alert` (system messages), `tooltip` (field hints).
 
-**Navigation & Layout:** Tabs (day switching within a trip), Breadcrumb (Trip List → Trip → Day), Sidebar (app-level navigation on desktop).
+**Navigation & Layout:** `tabs` (day switching within a trip — radio-input pattern, no JS), `breadcrumbs` (Trip List → Trip → Day), `menu` (app-level navigation), `drawer` (Sheet panel: event creation — right on desktop, bottom on mobile).
 
-**Display:** Card (base for EventCard), Badge (event type labels, status pills), Icon (type icons, lock icon), Skeleton (HTMX loading placeholders), Separator (visual dividers between days), Table (trip list view).
+**Display:** `card` (base for EventCard), `badge` (event type labels, status pills), `skeleton` (HTMX loading placeholders), `divider` (visual dividers between days), `table` (trip list view).
 
-**Interactive:** Accordion/Collapsible (progressive disclosure on event cards), Dropdown (event actions menu — edit, delete, pin/unpin), Copy Button (share link copying in Phase 2).
+**Interactive:** `collapse` (progressive disclosure on event cards), `dropdown` (event actions menu — edit, delete, pin/unpin).
 
 ### Custom Components
 
@@ -647,10 +648,10 @@ templui provides 43 components. The following are directly usable for traccia's 
 
 ### Component Implementation Strategy
 
-- **templui components** are used as-is for all standard UI: forms, dialogs, toasts, navigation, data display. Themed via CSS custom property overrides to match the Swiss/Brutalist direction.
-- **Custom components** are built as templ functions following templui conventions: typed Go props, Tailwind utilities for styling, HTMX attributes for server-rendered updates.
-- **Alpine.js** handles client-side state for TypeSelector form morphing and drag-and-drop (via SortableJS or a lightweight Alpine plugin). templui's vanilla JS handles its own component internals.
-- **Shared design tokens**: custom components use the same CSS variables (colors, spacing, border-radius, shadows) as templui components, ensuring visual consistency.
+- **daisyUI classes** are used for all standard UI: forms, modals, toasts, navigation, data display. Themed via CSS custom property overrides in input.css to match the Swiss/Brutalist direction.
+- **Custom components** are built as templ functions with typed Go props, Tailwind utilities and daisyUI classes for styling, HTMX attributes for server-rendered updates.
+- **Alpine.js** handles client-side state for TypeSelector form morphing and drag-and-drop (via SortableJS or a lightweight Alpine plugin). Interactive daisyUI components (modal, drawer) use native HTML patterns — `<dialog>.showModal()` or checkbox toggle — wired via Alpine.js or `hx-on` as needed.
+- **Shared design tokens**: custom components use the same CSS variables as daisyUI (`--color-primary`, `--color-base-100`, etc.) plus traccia's signal color tokens, ensuring visual consistency.
 
 ### Implementation Roadmap
 

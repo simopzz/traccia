@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "daisyui";
 
 @source "../../internal/**/*.templ";
 
@@ -13,7 +14,7 @@
   --color-warning: #f59e0b;
   --color-danger: #f43f5e;
 
-  /* templui semantic colors (shadcn convention) */
+  /* Semantic colors (shadcn/daisyUI convention) */
   --color-background: #ffffff;
   --color-foreground: #0f172a;
   --color-muted-foreground: #64748b;

@@ -57,7 +57,6 @@ tools: tailwind-install
     @command -v golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
     @command -v goimports >/dev/null || go install golang.org/x/tools/cmd/goimports@latest
     @command -v migrate >/dev/null || go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-    @command -v templui >/dev/null || go install github.com/templui/templui/cmd/templui@latest
 
 # Download Tailwind CSS v4 standalone CLI
 tailwind-install:
