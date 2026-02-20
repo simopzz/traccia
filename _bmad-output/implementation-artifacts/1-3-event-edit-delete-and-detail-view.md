@@ -243,7 +243,22 @@ so that I can refine my plan and access all details without leaving the timeline
     - Wait 8 seconds → toast auto-hides (event remains soft-deleted)
     - Click Delete → toast appears → click Undo within 8s → event restored to original position, toast dismisses
 
+### Bug Fixes
+
+- [x] Task 7: Fix undo toast visibility bug (AC: #3)
+  - [x] 7.1 Modify `Delete` handler to dispatch `showUndoToast` event to `window` via script injection, ensuring the event fires even if the triggering element is removed from the DOM during the HTMX swap.
+
 ## Dev Notes
+
+### Bug Fix: Undo Toast Visibility
+
+The undo toast was failing to appear because the `HX-Trigger` header dispatches events on the triggering element (the delete button). Since the delete button is inside the `TimelineDay` which is swapped out (replaced) by the response, the element is detached from the DOM before the event can bubble up to the `window` listener.
+
+**Fix:** Instead of using the `HX-Trigger` header, the `Delete` handler now appends a `<script>` tag to the response body:
+```html
+<script>window.dispatchEvent(new CustomEvent('showundotoast', {detail: {...}}));</script>
+```
+HTMX executes this script after the swap, ensuring the event is dispatched directly to `window` regardless of the button's existence.
 
 ### Critical: Inline Edit, Not Sheet
 
@@ -465,9 +480,11 @@ claude-sonnet-4-6
 - `internal/handler/helpers.go` (modified)
 - `static/js/alpine-collapse.min.js` (new)
 - `static/css/app.css` (modified)
+- `internal/handler/event_test.go` (new)
 
 ## Change Log
 
 - 2026-02-19: Implemented story 1.3 — event edit, delete, detail view, and undo toast. Added soft delete via migration 002, extended domain/repository/service with Restore, redesigned EventTimelineItem with inline edit mode, updated Update/Delete handlers with HTMX support, added Restore handler and route, added undo toast component, vendored Alpine Collapse plugin. 7 new service tests. (claude-sonnet-4-6)
 - 2026-02-19: Code review fixes — added `hx-disabled-elt` and disabled styling to inline edit/delete buttons for loading states; removed redundant POST route handlers for Update. (gemini-cli)
 - 2026-02-19: Code review fixes (adversarial) — added non-HTMX fallback redirect to Restore handler (H1); added HTMX check to Update handler 422 paths via renderCardError helper, non-HTMX redirects to edit page (M2); fixed service.Update() to validate end>start when only one time is provided by pre-fetching event (M3); documented static/css/app.css in File List (M1); added TestEventService_Update_OnlyStartTimeMovedPastEndTime. (claude-sonnet-4-6)
+- 2026-02-19: Bug fix — undo toast visibility. Modified `Delete` handler to use script injection for `showUndoToast` event dispatching to ensure it fires after the triggering element is removed. Added `internal/handler/event_test.go`. (dev-agent)
