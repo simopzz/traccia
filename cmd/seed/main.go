@@ -1,0 +1,193 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log/slog"
+	"math/rand"
+	"os"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/simopzz/traccia/internal/domain"
+	"github.com/simopzz/traccia/internal/infra/config"
+	"github.com/simopzz/traccia/internal/infra/database"
+	"github.com/simopzz/traccia/internal/repository"
+	"github.com/simopzz/traccia/internal/service"
+)
+
+const SeedPrefix = "[SEED]"
+
+func main() {
+	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+
+	cfg := config.Load()
+
+	if cfg.Environment == "production" {
+		slog.Error("CRITICAL: Cannot run seeder in production environment")
+		os.Exit(1)
+	}
+
+	clean := flag.Bool("clean", false, "Clean up existing seed data before running")
+	flag.Parse()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	pool, err := database.NewPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	tripStore := repository.NewTripStore(pool)
+	eventStore := repository.NewEventStore(pool)
+
+	tripService := service.NewTripService(tripStore)
+	eventService := service.NewEventService(eventStore)
+
+	if *clean {
+		if err := cleanup(ctx, pool); err != nil {
+			slog.Error("cleanup failed", "error", err)
+			os.Exit(1)
+		}
+	}
+
+	if err := seed(ctx, tripService, eventService); err != nil {
+		slog.Error("seeding failed", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("Seeding completed successfully")
+}
+
+func cleanup(ctx context.Context, pool *pgxpool.Pool) error {
+	slog.Info("Cleaning up existing seed data...")
+
+	tag, err := pool.Exec(ctx, "DELETE FROM trips WHERE name LIKE $1 || '%'", SeedPrefix)
+	if err != nil {
+		return fmt.Errorf("failed to delete seed trips: %w", err)
+	}
+
+	slog.Info("Cleanup complete", "deleted_trips", tag.RowsAffected())
+	return nil
+}
+
+func seed(ctx context.Context, tripService *service.TripService, eventService *service.EventService) error {
+	slog.Info("Starting database seed...")
+
+	totalEvents := 0
+	failedEvents := 0
+
+	for i := 0; i < 5; i++ {
+		trip, err := seedTrip(ctx, tripService)
+		if err != nil {
+			return fmt.Errorf("failed to seed trip %d: %w", i, err)
+		}
+
+		s, f, err := seedEvents(ctx, eventService, trip)
+		if err != nil {
+			return fmt.Errorf("failed to seed events for trip %d: %w", trip.ID, err)
+		}
+		totalEvents += s
+		failedEvents += f
+	}
+
+	slog.Info("Seeding summary", "total_events_created", totalEvents, "failed_events", failedEvents)
+
+	if totalEvents == 0 && failedEvents > 0 {
+		return fmt.Errorf("failed to seed any events")
+	}
+
+	return nil
+}
+
+func seedTrip(ctx context.Context, tripService *service.TripService) (*domain.Trip, error) {
+	destinations := []string{"Paris", "Tokyo", "New York", "Milano", "London", "Berlin", "Sydney"}
+
+	daysFromNow := rand.Intn(365)
+	startDate := time.Now().AddDate(0, 0, daysFromNow)
+
+	duration := rand.Intn(12) + 3
+	endDate := startDate.AddDate(0, 0, duration)
+
+	name := fmt.Sprintf("%s Trip to %s", SeedPrefix, destinations[rand.Intn(len(destinations))])
+
+	input := &service.CreateTripInput{
+		Name:        name,
+		Destination: destinations[rand.Intn(len(destinations))],
+		StartDate:   startDate,
+		EndDate:     endDate,
+	}
+
+	trip, err := tripService.Create(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Info("Created trip", "id", trip.ID, "name", trip.Name, "start", trip.StartDate.Format(time.DateOnly), "end", trip.EndDate.Format(time.DateOnly))
+	return trip, nil
+}
+
+func seedEvents(ctx context.Context, eventService *service.EventService, trip *domain.Trip) (int, int, error) {
+	successCount := 0
+	failureCount := 0
+
+	currentDate := trip.StartDate
+	for !currentDate.After(trip.EndDate) {
+		// 2-4 events per day
+		eventsCount := rand.Intn(3) + 2
+
+		for i := 0; i < eventsCount; i++ {
+			startHour := rand.Intn(11) + 8 // 8 to 18
+			startMin := rand.Intn(4) * 15  // 0, 15, 30, 45
+
+			startTime := time.Date(
+				currentDate.Year(), currentDate.Month(), currentDate.Day(),
+				startHour, startMin, 0, 0, currentDate.Location(),
+			)
+
+			durationMinutes := (rand.Intn(3) + 1) * 60
+			endTime := startTime.Add(time.Duration(durationMinutes) * time.Minute)
+
+			categories := []domain.EventCategory{
+				domain.CategoryActivity,
+				domain.CategoryFood,
+				domain.CategoryLodging,
+				domain.CategoryTransit,
+			}
+			category := categories[rand.Intn(len(categories))]
+
+			title := fmt.Sprintf("Visit %s %d", category, i+1)
+			if category == domain.CategoryFood {
+				title = fmt.Sprintf("Meal at Local Spot %d", i+1)
+			}
+
+			input := &service.CreateEventInput{
+				TripID:    trip.ID,
+				Title:     title,
+				Category:  category,
+				StartTime: startTime,
+				EndTime:   endTime,
+				Location:  "Random Location",
+				Notes:     "Generated by seeder",
+			}
+
+			_, err := eventService.Create(ctx, input)
+			if err != nil {
+				slog.Warn("Failed to create event", "error", err, "trip_id", trip.ID)
+				failureCount++
+			} else {
+				slog.Debug("Created event", "title", title, "date", startTime.Format(time.DateOnly))
+				successCount++
+			}
+		}
+
+		currentDate = currentDate.AddDate(0, 0, 1)
+	}
+	return successCount, failureCount, nil
+}
