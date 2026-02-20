@@ -444,8 +444,11 @@ func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			Events: events,
 		}
 		eventDateStr := eventDate.Format("2006-01-02")
-		w.Header().Set("HX-Trigger", fmt.Sprintf(`{"showUndoToast": {"eventId": %d, "tripId": %d, "eventDate": %q}}`, id, tripID, eventDateStr))
+		// Cannot use HX-Trigger header here because the triggering element (delete button)
+		// is removed from the DOM by the swap, so the event wouldn't bubble to window.
+		// Instead, we append a script to dispatch the event directly on window.
 		templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
+		fmt.Fprintf(w, `<script>window.dispatchEvent(new CustomEvent('showundotoast', {detail: {"eventId": %d, "tripId": %d, "eventDate": "%s"}}));</script>`, id, tripID, eventDateStr)
 		return
 	}
 
