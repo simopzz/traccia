@@ -1,0 +1,53 @@
+package handler
+
+import "github.com/simopzz/traccia/internal/domain"
+
+// FlightCardContent renders the flight-specific detail section inside an expanded event card.
+// It is called from EventTimelineItem when event.Category == domain.CategoryFlight.
+templ FlightCardContent(fd *domain.FlightDetails) {
+	if fd == nil {
+		return
+	}
+	<div class="mt-3 pt-3 border-t border-slate-100 space-y-2">
+		<!-- Route summary -->
+		<div class="flex items-center gap-2 text-sm font-bold font-mono text-slate-800">
+			<span>{ fd.DepartureAirport }</span>
+			<span class="text-slate-400">→</span>
+			<span>{ fd.ArrivalAirport }</span>
+			if fd.FlightNumber != "" {
+				<span class="ml-auto text-xs font-mono text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5">{ fd.Airline } { fd.FlightNumber }</span>
+			}
+		</div>
+		<!-- Departure details -->
+		if fd.DepartureTerminal != "" || fd.DepartureGate != "" {
+			<div class="text-xs text-slate-500">
+				<span class="font-medium text-slate-600">Dep:</span>
+				if fd.DepartureTerminal != "" {
+					<span class="font-mono ml-1">Terminal { fd.DepartureTerminal }</span>
+				}
+				if fd.DepartureGate != "" {
+					<span class="font-mono ml-1">Gate { fd.DepartureGate }</span>
+				}
+			</div>
+		}
+		<!-- Arrival details -->
+		if fd.ArrivalTerminal != "" || fd.ArrivalGate != "" {
+			<div class="text-xs text-slate-500">
+				<span class="font-medium text-slate-600">Arr:</span>
+				if fd.ArrivalTerminal != "" {
+					<span class="font-mono ml-1">Terminal { fd.ArrivalTerminal }</span>
+				}
+				if fd.ArrivalGate != "" {
+					<span class="font-mono ml-1">Gate { fd.ArrivalGate }</span>
+				}
+			</div>
+		}
+		<!-- Booking reference -->
+		if fd.BookingReference != "" {
+			<div class="text-xs text-slate-500">
+				<span class="font-medium text-slate-600">Ref:</span>
+				<span class="font-mono ml-1 tracking-wider">{ fd.BookingReference }</span>
+			</div>
+		}
+	</div>
+}

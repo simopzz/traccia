@@ -13,9 +13,9 @@ import (
 // mockEventRepo implements service.EventStore for testing.
 type mockEventRepo struct {
 	events    map[int]*domain.Event
-	deletedAt map[int]bool // tracks soft-deleted events
-	nextID    int
+	deletedAt map[int]bool
 	lastEvent *domain.Event
+	nextID    int
 }
 
 func newMockEventRepo() *mockEventRepo {
@@ -118,9 +118,9 @@ func TestEventService_Create(t *testing.T) {
 	baseEnd := time.Date(2026, 5, 1, 11, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name    string
-		input   *service.CreateEventInput
 		wantErr error
+		input   *service.CreateEventInput
+		name    string
 	}{
 		{
 			name: "valid event",
@@ -338,11 +338,11 @@ func TestEventService_Create_MultipleEvents(t *testing.T) {
 
 func TestEventService_Update(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(*mockEventRepo)
-		id      int
-		input   *service.UpdateEventInput
 		wantErr error
+		setup   func(*mockEventRepo)
+		input   *service.UpdateEventInput
+		name    string
+		id      int
 	}{
 		{
 			name: "valid update",
@@ -484,10 +484,10 @@ func TestEventService_SuggestDefaults(t *testing.T) {
 
 func TestEventService_Delete(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(*mockEventRepo)
-		id      int
 		wantErr error
+		setup   func(*mockEventRepo)
+		name    string
+		id      int
 	}{
 		{
 			name: "delete existing event",
@@ -712,5 +712,150 @@ func TestEventService_ListByTripAndDate_ExcludesSoftDeleted(t *testing.T) {
 	}
 	if events[0].Title != "Keep" {
 		t.Errorf("got event %q, want %q", events[0].Title, "Keep")
+	}
+}
+
+// Tests for Story 1.4: Flight event creation, nil-safety, and update.
+
+func TestEventService_Create_FlightEvent_PopulatesFlightDetails(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	input := &service.CreateEventInput{
+		TripID:    1,
+		Title:     "London to Paris",
+		Category:  domain.CategoryFlight,
+		StartTime: time.Date(2026, 6, 1, 8, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 30, 0, 0, time.UTC),
+		FlightDetails: &domain.FlightDetails{
+			Airline:          "BA",
+			FlightNumber:     "234",
+			DepartureAirport: "LHR",
+			ArrivalAirport:   "CDG",
+			DepartureGate:    "A12",
+		},
+	}
+
+	event, err := svc.Create(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+	if event.Flight == nil {
+		t.Fatal("Create() event.Flight is nil, expected non-nil for flight event")
+	}
+	if event.Flight.Airline != "BA" {
+		t.Errorf("Flight.Airline = %q, want %q", event.Flight.Airline, "BA")
+	}
+	if event.Flight.DepartureAirport != "LHR" {
+		t.Errorf("Flight.DepartureAirport = %q, want %q", event.Flight.DepartureAirport, "LHR")
+	}
+	if event.Flight.ArrivalAirport != "CDG" {
+		t.Errorf("Flight.ArrivalAirport = %q, want %q", event.Flight.ArrivalAirport, "CDG")
+	}
+}
+
+func TestEventService_Create_FlightEvent_NilDetailsDefaultsToEmpty(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	input := &service.CreateEventInput{
+		TripID:        1,
+		Title:         "Mystery Flight",
+		Category:      domain.CategoryFlight,
+		StartTime:     time.Date(2026, 6, 1, 8, 0, 0, 0, time.UTC),
+		EndTime:       time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
+		FlightDetails: nil, // explicitly nil
+	}
+
+	event, err := svc.Create(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+	if event.Flight == nil {
+		t.Fatal("Create() event.Flight is nil for flight category, expected empty FlightDetails{}")
+	}
+	// Fields should be empty strings, not a panic
+	if event.Flight.Airline != "" {
+		t.Errorf("Flight.Airline = %q, want empty", event.Flight.Airline)
+	}
+}
+
+func TestEventService_Update_FlightEvent_UpdatesFlightDetails(t *testing.T) {
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:        1,
+		TripID:    1,
+		Title:     "London to Paris",
+		Category:  domain.CategoryFlight,
+		StartTime: time.Date(2026, 6, 1, 8, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 30, 0, 0, time.UTC),
+		Flight: &domain.FlightDetails{
+			Airline:      "BA",
+			FlightNumber: "234",
+		},
+	}
+	svc := service.NewEventService(repo)
+
+	updatedDetails := &domain.FlightDetails{
+		Airline:      "LH",
+		FlightNumber: "100",
+	}
+	event, err := svc.Update(context.Background(), 1, &service.UpdateEventInput{
+		FlightDetails: updatedDetails,
+	})
+	if err != nil {
+		t.Fatalf("Update() unexpected error: %v", err)
+	}
+	if event.Flight == nil {
+		t.Fatal("Update() event.Flight is nil")
+	}
+	if event.Flight.Airline != "LH" {
+		t.Errorf("Flight.Airline = %q, want %q", event.Flight.Airline, "LH")
+	}
+	if event.Flight.FlightNumber != "100" {
+		t.Errorf("Flight.FlightNumber = %q, want %q", event.Flight.FlightNumber, "100")
+	}
+}
+
+func TestEventService_Update_NonFlightEvent_NilDetailsUnchanged(t *testing.T) {
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:        1,
+		TripID:    1,
+		Title:     "Walk in Park",
+		Category:  domain.CategoryActivity,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		Flight:    nil,
+	}
+	svc := service.NewEventService(repo)
+
+	// Provide nil FlightDetails — should not change anything
+	event, err := svc.Update(context.Background(), 1, &service.UpdateEventInput{
+		Title:         strPtr("Updated Walk"),
+		FlightDetails: nil,
+	})
+	if err != nil {
+		t.Fatalf("Update() unexpected error: %v", err)
+	}
+	if event.Flight != nil {
+		t.Error("Update() event.Flight should remain nil for non-flight event")
+	}
+	if event.Title != "Updated Walk" {
+		t.Errorf("Title = %q, want %q", event.Title, "Updated Walk")
+	}
+}
+
+func TestEventService_SuggestDefaults_FlightDuration(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	eventDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	defaults := svc.SuggestDefaults(context.Background(), 1, eventDate, domain.CategoryFlight)
+
+	gotDuration := defaults.EndTime.Sub(defaults.StartTime)
+	wantDuration := 3 * time.Hour
+	if gotDuration != wantDuration {
+		t.Errorf("Flight duration = %v, want %v", gotDuration, wantDuration)
 	}
 }

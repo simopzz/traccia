@@ -12,10 +12,10 @@ import (
 
 // mockTripRepo is a test double implementing domain.TripRepository.
 type mockTripRepo struct {
-	trips                 map[int]*domain.Trip
 	eventsOutsideRangeErr error
-	affectedDays          []domain.DateEventCount
 	affectedDaysErr       error
+	trips                 map[int]*domain.Trip
+	affectedDays          []domain.DateEventCount
 	nextID                int
 	eventsOutsideRange    int
 }
@@ -88,9 +88,9 @@ func (m *mockTripRepo) CountEventsByTripGroupedByDate(_ context.Context, _ int, 
 
 func TestTripService_Create(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   *service.CreateTripInput
 		wantErr error
+		input   *service.CreateTripInput
+		name    string
 	}{
 		{
 			name: "valid trip",
@@ -186,11 +186,11 @@ func TestTripService_Create(t *testing.T) {
 
 func TestTripService_Update(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(*mockTripRepo)
-		id      int
 		input   service.UpdateTripInput
 		wantErr error
+		setup   func(*mockTripRepo)
+		name    string
+		id      int
 	}{
 		{
 			name: "valid update",
@@ -273,10 +273,10 @@ func TestTripService_Update(t *testing.T) {
 
 func TestTripService_Delete(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(*mockTripRepo)
-		id      int
 		wantErr error
+		setup   func(*mockTripRepo)
+		name    string
+		id      int
 	}{
 		{
 			name: "delete existing trip",
@@ -319,12 +319,12 @@ func TestTripService_ValidateDateRangeShrink(t *testing.T) {
 	oldEnd := time.Date(2026, 5, 5, 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name         string
 		newStart     time.Time
 		newEnd       time.Time
-		affectedDays []domain.DateEventCount
 		wantErr      error
+		name         string
 		wantMsg      string
+		affectedDays []domain.DateEventCount
 	}{
 		{
 			name:     "no shrink - range expanded",

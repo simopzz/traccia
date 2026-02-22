@@ -26,11 +26,11 @@ var categoryLabels = map[string]string{
 var enabledCategories = map[string]bool{
 	"activity": true,
 	"food":     true,
+	"flight":   true,
 }
 
 templ TypeSelector(selected string) {
 	<div
-		x-data={ fmt.Sprintf(`{ selected: '%s' }`, selected) }
 		role="radiogroup"
 		aria-label="Event type"
 		class="flex gap-2 mb-6"
@@ -92,6 +92,7 @@ templ EventCreateForm(data *EventFormData) {
 			hx-post={ fmt.Sprintf("/trips/%d/events", data.TripID) }
 			hx-target="#sheet-form"
 			hx-swap="innerHTML"
+			x-data={ fmt.Sprintf(`{ selected: '%s' }`, data.Category) }
 		>
 			@TypeSelector(data.Category)
 			<input type="hidden" name="date" value={ data.Date }/>
@@ -197,6 +198,65 @@ templ EventCreateForm(data *EventFormData) {
 					</span>
 					Pin this event
 				</label>
+			</div>
+			<!-- Flight-specific fields (Alpine.js x-show) -->
+			<div x-show="selected === 'flight'" class="mb-4 border-t-2 border-slate-100 pt-4">
+				<p class="text-xs font-bold uppercase tracking-wide text-sky-700 mb-3">Flight Details</p>
+				<div class="grid grid-cols-2 gap-3 mb-3">
+					<div>
+						<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">Airline</label>
+						<input type="text" name="airline" value={ data.Airline }
+							class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm font-mono focus:outline-none focus:border-brand focus:shadow-[2px_2px_0px_0px_#008080]"/>
+					</div>
+					<div>
+						<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">Flight No.</label>
+						<input type="text" name="flight_number" value={ data.FlightNumber }
+							class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm font-mono focus:outline-none focus:border-brand focus:shadow-[2px_2px_0px_0px_#008080]"/>
+					</div>
+				</div>
+				<div class="grid grid-cols-2 gap-3 mb-3">
+					<div>
+						<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">From (airport)</label>
+						<input type="text" name="departure_airport" value={ data.DepartureAirport }
+							placeholder="e.g. LHR"
+							class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm font-mono focus:outline-none focus:border-brand"/>
+					</div>
+					<div>
+						<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">To (airport)</label>
+						<input type="text" name="arrival_airport" value={ data.ArrivalAirport }
+							placeholder="e.g. CDG"
+							class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm font-mono focus:outline-none focus:border-brand"/>
+					</div>
+				</div>
+				<div class="grid grid-cols-2 gap-3 mb-3">
+					<div>
+						<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">Dep. Terminal</label>
+						<input type="text" name="departure_terminal" value={ data.DepartureTerminal }
+							class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm font-mono focus:outline-none focus:border-brand"/>
+					</div>
+					<div>
+						<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">Arr. Terminal</label>
+						<input type="text" name="arrival_terminal" value={ data.ArrivalTerminal }
+							class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm font-mono focus:outline-none focus:border-brand"/>
+					</div>
+				</div>
+				<div class="grid grid-cols-2 gap-3 mb-3">
+					<div>
+						<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">Dep. Gate</label>
+						<input type="text" name="departure_gate" value={ data.DepartureGate }
+							class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm font-mono focus:outline-none focus:border-brand"/>
+					</div>
+					<div>
+						<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">Arr. Gate</label>
+						<input type="text" name="arrival_gate" value={ data.ArrivalGate }
+							class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm font-mono focus:outline-none focus:border-brand"/>
+					</div>
+				</div>
+				<div>
+					<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">Booking Reference</label>
+					<input type="text" name="booking_reference" value={ data.BookingReference }
+						class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm font-mono focus:outline-none focus:border-brand"/>
+				</div>
 			</div>
 			<!-- Actions -->
 			<div class="flex gap-3">
