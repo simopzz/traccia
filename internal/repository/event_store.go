@@ -260,16 +260,29 @@ func (s *EventStore) CountByTrip(ctx context.Context, tripID int) (int, error) {
 // loadFlightDetails enriches flight events with their detail row.
 // No-op for non-flight events. Errors are logged but not fatal.
 func (s *EventStore) loadFlightDetails(ctx context.Context, events []domain.Event) []domain.Event {
+	var flightEventIDs []int
+	for _, e := range events {
+		if e.Category == domain.CategoryFlight {
+			flightEventIDs = append(flightEventIDs, e.ID)
+		}
+	}
+
+	if len(flightEventIDs) == 0 {
+		return events
+	}
+
+	detailsMap, err := s.flight.GetByEventIDs(ctx, s.queries, flightEventIDs)
+	if err != nil {
+		slog.WarnContext(ctx, "failed to load flight_details batch", "error", err)
+		return events
+	}
+
 	for i := range events {
-		if events[i].Category != domain.CategoryFlight {
-			continue
+		if events[i].Category == domain.CategoryFlight {
+			if fd, ok := detailsMap[events[i].ID]; ok {
+				events[i].Flight = fd
+			}
 		}
-		fd, err := s.flight.GetByEventID(ctx, s.queries, events[i].ID)
-		if err != nil {
-			slog.WarnContext(ctx, "failed to load flight_details", "event_id", events[i].ID, "error", err)
-			continue
-		}
-		events[i].Flight = fd
 	}
 	return events
 }

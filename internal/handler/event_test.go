@@ -96,3 +96,30 @@ func TestEventHandler_Delete_ScriptInjection(t *testing.T) {
 		t.Errorf("Delete() unexpected HX-Trigger header: %s", w.Header().Get("HX-Trigger"))
 	}
 }
+
+func TestEventHandler_Create_Flight(t *testing.T) {
+	// Simple mock that allows Create and List
+	repo := &mockEventRepo{}
+	svc := service.NewEventService(repo)
+	h := NewEventHandler(svc)
+
+	// Post data for a flight
+	form := strings.NewReader("title=Flight to Paris&date=2026-06-01&start_time=10:00&end_time=12:00&category=flight&airline=BA&flight_number=123&departure_airport=LHR&arrival_airport=CDG")
+	r := httptest.NewRequest("POST", "/trips/1/events", form)
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.Header.Set("HX-Request", "true")
+
+	// Setup Chi context
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("tripID", "1")
+	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+
+	w := httptest.NewRecorder()
+
+	h.Create(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Create() status = %d, want %d", w.Code, http.StatusOK)
+	}
+	// Verify no error toast/fragment (which would be 422)
+}

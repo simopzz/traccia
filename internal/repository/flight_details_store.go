@@ -51,6 +51,27 @@ func (s *FlightDetailsStore) GetByEventID(ctx context.Context, q *sqlcgen.Querie
 	return &result, nil
 }
 
+// GetByEventIDs fetches flight_details for multiple events in a single query.
+func (s *FlightDetailsStore) GetByEventIDs(ctx context.Context, q *sqlcgen.Queries, eventIDs []int) (map[int]*domain.FlightDetails, error) {
+	if len(eventIDs) == 0 {
+		return nil, nil
+	}
+	ids := make([]int32, len(eventIDs))
+	for i, id := range eventIDs {
+		ids[i] = int32(id)
+	}
+	rows, err := q.GetFlightDetailsByEventIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("fetching flight_details by ids: %w", err)
+	}
+	results := make(map[int]*domain.FlightDetails)
+	for _, row := range rows {
+		fd := flightRowToDomain(&row)
+		results[int(row.EventID)] = &fd
+	}
+	return results, nil
+}
+
 // Update updates existing flight_details. Uses the caller-provided queries (can be tx-scoped).
 func (s *FlightDetailsStore) Update(ctx context.Context, q *sqlcgen.Queries, eventID int, fd *domain.FlightDetails) (*domain.FlightDetails, error) {
 	row, err := q.UpdateFlightDetails(ctx, sqlcgen.UpdateFlightDetailsParams{

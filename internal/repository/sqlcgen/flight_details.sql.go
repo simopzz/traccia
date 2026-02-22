@@ -83,6 +83,42 @@ func (q *Queries) GetFlightDetailsByEventID(ctx context.Context, eventID int32) 
 	return i, err
 }
 
+const getFlightDetailsByEventIDs = `-- name: GetFlightDetailsByEventIDs :many
+SELECT id, event_id, airline, flight_number, departure_airport, arrival_airport, departure_terminal, arrival_terminal, departure_gate, arrival_gate, booking_reference FROM flight_details WHERE event_id = ANY($1::int[])
+`
+
+func (q *Queries) GetFlightDetailsByEventIDs(ctx context.Context, eventIds []int32) ([]FlightDetail, error) {
+	rows, err := q.db.Query(ctx, getFlightDetailsByEventIDs, eventIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FlightDetail{}
+	for rows.Next() {
+		var i FlightDetail
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventID,
+			&i.Airline,
+			&i.FlightNumber,
+			&i.DepartureAirport,
+			&i.ArrivalAirport,
+			&i.DepartureTerminal,
+			&i.ArrivalTerminal,
+			&i.DepartureGate,
+			&i.ArrivalGate,
+			&i.BookingReference,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateFlightDetails = `-- name: UpdateFlightDetails :one
 UPDATE flight_details
 SET airline = $2, flight_number = $3, departure_airport = $4, arrival_airport = $5,

@@ -6,6 +6,9 @@ RETURNING *;
 -- name: GetFlightDetailsByEventID :one
 SELECT * FROM flight_details WHERE event_id = $1;
 
+-- name: GetFlightDetailsByEventIDs :many
+SELECT * FROM flight_details WHERE event_id = ANY(@event_ids::int[]);
+
 -- name: UpdateFlightDetails :one
 UPDATE flight_details
 SET airline = $2, flight_number = $3, departure_airport = $4, arrival_airport = $5,

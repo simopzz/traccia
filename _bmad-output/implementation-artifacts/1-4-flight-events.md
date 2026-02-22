@@ -843,6 +843,8 @@ claude-sonnet-4-6
 - `internal/repository/flight_details_store.go`
 - `internal/handler/flight_card.templ`
 - `internal/handler/flight_card_templ.go` (generated)
+- `internal/handler/flight_form.templ`
+- `internal/handler/flight_form_templ.go` (generated)
 
 **Modified files:**
 - `internal/domain/models.go`
@@ -856,8 +858,10 @@ claude-sonnet-4-6
 - `cmd/app/main.go`
 - `cmd/seed/main.go`
 - `internal/service/event_test.go`
+- `internal/handler/event_test.go`
 - `_bmad-output/implementation-artifacts/sprint-status.yaml`
 
 ## Change Log
 
 - 2026-02-20: Story 1.4 implemented — Flight events with airline, flight number, airports, terminals, gates, booking reference. Transactional create/update via `FlightDetailsStore`. `FlightCardContent` renders expanded flight details. 5 new service tests added.
+- 2026-02-22: Code Review fixes — Implemented bulk loading for flight details (N+1 fix), added flight fields to full-page fallback forms via shared component, added handler tests, and improved server-side validation.
