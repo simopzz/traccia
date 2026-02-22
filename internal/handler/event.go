@@ -562,35 +562,6 @@ func (h *EventHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
 }
 
-// flightFieldValue safely retrieves a named field from FlightDetails.
-// Returns empty string if fd is nil.
-func flightFieldValue(fd *domain.FlightDetails, field string) string {
-	if fd == nil {
-		return ""
-	}
-	switch field {
-	case "airline":
-		return fd.Airline
-	case "flight_number":
-		return fd.FlightNumber
-	case "departure_airport":
-		return fd.DepartureAirport
-	case "arrival_airport":
-		return fd.ArrivalAirport
-	case "departure_terminal":
-		return fd.DepartureTerminal
-	case "arrival_terminal":
-		return fd.ArrivalTerminal
-	case "departure_gate":
-		return fd.DepartureGate
-	case "arrival_gate":
-		return fd.ArrivalGate
-	case "booking_reference":
-		return fd.BookingReference
-	}
-	return ""
-}
-
 func parseFlightDetails(r *http.Request) *domain.FlightDetails {
 	return &domain.FlightDetails{
 		Airline:           r.FormValue("airline"),

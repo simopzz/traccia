@@ -12,13 +12,6 @@ func formatDateInput(t time.Time) string {
 	return t.Format("2006-01-02")
 }
 
-func formatDateTimeInput(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	return t.Format("2006-01-02T15:04")
-}
-
 func parseDate(s string) time.Time {
 	if s == "" {
 		return time.Time{}

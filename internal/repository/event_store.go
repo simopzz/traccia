@@ -261,9 +261,9 @@ func (s *EventStore) CountByTrip(ctx context.Context, tripID int) (int, error) {
 // No-op for non-flight events. Errors are logged but not fatal.
 func (s *EventStore) loadFlightDetails(ctx context.Context, events []domain.Event) []domain.Event {
 	var flightEventIDs []int
-	for _, e := range events {
-		if e.Category == domain.CategoryFlight {
-			flightEventIDs = append(flightEventIDs, e.ID)
+	for i := range events {
+		if events[i].Category == domain.CategoryFlight {
+			flightEventIDs = append(flightEventIDs, events[i].ID)
 		}
 	}
 

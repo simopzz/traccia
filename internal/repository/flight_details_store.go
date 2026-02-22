@@ -65,9 +65,9 @@ func (s *FlightDetailsStore) GetByEventIDs(ctx context.Context, q *sqlcgen.Queri
 		return nil, fmt.Errorf("fetching flight_details by ids: %w", err)
 	}
 	results := make(map[int]*domain.FlightDetails)
-	for _, row := range rows {
-		fd := flightRowToDomain(&row)
-		results[int(row.EventID)] = &fd
+	for i := range rows {
+		fd := flightRowToDomain(&rows[i])
+		results[int(rows[i].EventID)] = &fd
 	}
 	return results, nil
 }
