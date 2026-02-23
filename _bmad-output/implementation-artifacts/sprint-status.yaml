@@ -47,7 +47,7 @@ development_status:
   1-3-event-edit-delete-and-detail-view: done
   1-4-flight-events: done
   1-5-lodging-events: done
-  1-6-transit-events: backlog
+  1-6-transit-events: review
   epic-1-retrospective: optional
 
   # Epic 2: Timeline Interaction

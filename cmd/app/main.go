@@ -50,7 +50,8 @@ func run() error {
 	tripStore := repository.NewTripStore(pool)
 	flightDetailsStore := repository.NewFlightDetailsStore()
 	lodgingDetailsStore := repository.NewLodgingDetailsStore()
-	eventStore := repository.NewEventStore(pool, flightDetailsStore, lodgingDetailsStore)
+	transitDetailsStore := repository.NewTransitDetailsStore()
+	eventStore := repository.NewEventStore(pool, flightDetailsStore, lodgingDetailsStore, transitDetailsStore)
 
 	// Services
 	tripService := service.NewTripService(tripStore)

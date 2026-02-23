@@ -28,6 +28,7 @@ var enabledCategories = map[string]bool{
 	"food":     true,
 	"flight":   true,
 	"lodging":  true,
+	"transit":  true,
 }
 
 templ TypeSelector(selected string) {
@@ -208,6 +209,7 @@ templ EventCreateForm(data *EventFormData) {
 			<div x-show="selected === 'lodging'">
 				@LodgingFormFields(*data)
 			</div>
+			@TransitFormFields(*data)
 			<!-- Actions -->
 			<div class="flex gap-3">
 				<button

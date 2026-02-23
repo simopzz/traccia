@@ -1041,3 +1041,131 @@ func TestEventService_Update_Lodging_Validation(t *testing.T) {
 		t.Errorf("Update() error = %v, want ErrInvalidInput", err)
 	}
 }
+
+// Tests for Story 1.6: Transit event creation and update.
+
+func TestEventService_Create_TransitEvent_PopulatesTransitDetails(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	input := &service.CreateEventInput{
+		TripID:    1,
+		Title:     "Shibuya to Asakusa",
+		Category:  domain.CategoryTransit,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 9, 30, 0, 0, time.UTC),
+		TransitDetails: &domain.TransitDetails{
+			Origin:        "Shibuya Station",
+			Destination:   "Asakusa Station",
+			TransportMode: "Metro",
+		},
+	}
+
+	event, err := svc.Create(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+	if event.Transit == nil {
+		t.Fatal("Create() event.Transit is nil, expected non-nil for transit event")
+	}
+	if event.Transit.Origin != "Shibuya Station" {
+		t.Errorf("Transit.Origin = %q, want %q", event.Transit.Origin, "Shibuya Station")
+	}
+	if event.Transit.Destination != "Asakusa Station" {
+		t.Errorf("Transit.Destination = %q, want %q", event.Transit.Destination, "Asakusa Station")
+	}
+	if event.Transit.TransportMode != "Metro" {
+		t.Errorf("Transit.TransportMode = %q, want %q", event.Transit.TransportMode, "Metro")
+	}
+}
+
+func TestEventService_Create_TransitEvent_NilDetailsDefaultsToEmpty(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	input := &service.CreateEventInput{
+		TripID:         1,
+		Title:          "Mystery Transit",
+		Category:       domain.CategoryTransit,
+		StartTime:      time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:        time.Date(2026, 6, 1, 9, 30, 0, 0, time.UTC),
+		TransitDetails: nil,
+	}
+
+	event, err := svc.Create(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+	if event.Transit == nil {
+		t.Fatal("Create() event.Transit is nil for transit category, expected empty TransitDetails{}")
+	}
+	if event.Transit.Origin != "" {
+		t.Errorf("Transit.Origin = %q, want empty", event.Transit.Origin)
+	}
+}
+
+func TestEventService_Update_TransitEvent_UpdatesTransitDetails(t *testing.T) {
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:        1,
+		TripID:    1,
+		Title:     "Shibuya to Asakusa",
+		Category:  domain.CategoryTransit,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 9, 30, 0, 0, time.UTC),
+		Transit: &domain.TransitDetails{
+			Origin:        "A",
+			Destination:   "B",
+			TransportMode: "Metro",
+		},
+	}
+	svc := service.NewEventService(repo)
+
+	event, err := svc.Update(context.Background(), 1, &service.UpdateEventInput{
+		TransitDetails: &domain.TransitDetails{
+			Origin:        "B",
+			Destination:   "C",
+			TransportMode: "Bus",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Update() unexpected error: %v", err)
+	}
+	if event.Transit == nil {
+		t.Fatal("Update() event.Transit is nil")
+	}
+	if event.Transit.Origin != "B" {
+		t.Errorf("Transit.Origin = %q, want %q", event.Transit.Origin, "B")
+	}
+	if event.Transit.TransportMode != "Bus" {
+		t.Errorf("Transit.TransportMode = %q, want %q", event.Transit.TransportMode, "Bus")
+	}
+}
+
+func TestEventService_Update_NonTransitEvent_NilTransitDetailsUnchanged(t *testing.T) {
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:        1,
+		TripID:    1,
+		Title:     "Walk in Park",
+		Category:  domain.CategoryActivity,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		Transit:   nil,
+	}
+	svc := service.NewEventService(repo)
+
+	event, err := svc.Update(context.Background(), 1, &service.UpdateEventInput{
+		Title:          strPtr("Updated Walk"),
+		TransitDetails: nil,
+	})
+	if err != nil {
+		t.Fatalf("Update() unexpected error: %v", err)
+	}
+	if event.Transit != nil {
+		t.Error("Update() event.Transit should remain nil for non-transit event")
+	}
+	if event.Title != "Updated Walk" {
+		t.Errorf("Title = %q, want %q", event.Title, "Updated Walk")
+	}
+}
