@@ -29,17 +29,18 @@ func NewEventService(repo EventStore) *EventService {
 }
 
 type CreateEventInput struct {
-	StartTime     time.Time
-	EndTime       time.Time
-	Latitude      *float64
-	Longitude     *float64
-	FlightDetails *domain.FlightDetails
-	Title         string
-	Category      domain.EventCategory
-	Location      string
-	Notes         string
-	TripID        int
-	Pinned        bool
+	StartTime      time.Time
+	EndTime        time.Time
+	Latitude       *float64
+	Longitude      *float64
+	FlightDetails  *domain.FlightDetails
+	LodgingDetails *domain.LodgingDetails
+	Title          string
+	Category       domain.EventCategory
+	Location       string
+	Notes          string
+	TripID         int
+	Pinned         bool
 }
 
 func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*domain.Event, error) {
@@ -87,6 +88,13 @@ func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*do
 		}
 	}
 
+	if input.Category == domain.CategoryLodging {
+		event.Lodging = input.LodgingDetails
+		if event.Lodging == nil {
+			event.Lodging = &domain.LodgingDetails{}
+		}
+	}
+
 	if err := s.repo.Create(ctx, event); err != nil {
 		return nil, err
 	}
@@ -111,17 +119,18 @@ func (s *EventService) CountByTrip(ctx context.Context, tripID int) (int, error)
 }
 
 type UpdateEventInput struct {
-	Title         *string
-	Category      *domain.EventCategory
-	Location      *string
-	Latitude      *float64
-	Longitude     *float64
-	StartTime     *time.Time
-	EndTime       *time.Time
-	Pinned        *bool
-	Position      *int
-	Notes         *string
-	FlightDetails *domain.FlightDetails // nil means "don't change flight details"
+	Title          *string
+	Category       *domain.EventCategory
+	Location       *string
+	Latitude       *float64
+	Longitude      *float64
+	StartTime      *time.Time
+	EndTime        *time.Time
+	Pinned         *bool
+	Position       *int
+	Notes          *string
+	FlightDetails  *domain.FlightDetails  // nil means "don't change flight details"
+	LodgingDetails *domain.LodgingDetails // nil means "don't change lodging details"
 }
 
 func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInput) (*domain.Event, error) {
@@ -182,6 +191,9 @@ func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInp
 		}
 		if input.FlightDetails != nil {
 			event.Flight = input.FlightDetails
+		}
+		if input.LodgingDetails != nil {
+			event.Lodging = input.LodgingDetails
 		}
 		return event
 	})

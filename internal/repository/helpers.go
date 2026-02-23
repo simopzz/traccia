@@ -34,3 +34,17 @@ func toPgFloat8(f *float64) pgtype.Float8 {
 func toPgBool(b bool) pgtype.Bool {
 	return pgtype.Bool{Bool: b, Valid: true}
 }
+
+func toOptionalPgTimestamptz(t *time.Time) pgtype.Timestamptz {
+	if t == nil {
+		return pgtype.Timestamptz{Valid: false}
+	}
+	return pgtype.Timestamptz{Time: *t, Valid: true}
+}
+
+func fromPgTimestamptz(t pgtype.Timestamptz) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	return &t.Time
+}
