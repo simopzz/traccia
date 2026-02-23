@@ -55,6 +55,13 @@ func Test_lodgingRowToDomain(t *testing.T) {
 			} else if got.CheckInTime != nil {
 				t.Error("CheckInTime should be nil")
 			}
+			if tt.row.CheckOutTime.Valid {
+				if got.CheckOutTime == nil || !got.CheckOutTime.Equal(tt.row.CheckOutTime.Time) {
+					t.Errorf("CheckOutTime mismatch: got %v, want %v", got.CheckOutTime, tt.row.CheckOutTime.Time)
+				}
+			} else if got.CheckOutTime != nil {
+				t.Error("CheckOutTime should be nil")
+			}
 			if got.BookingReference != tt.row.BookingReference.String {
 				t.Errorf("BookingReference = %q, want %q", got.BookingReference, tt.row.BookingReference.String)
 			}

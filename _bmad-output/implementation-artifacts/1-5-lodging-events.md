@@ -1,6 +1,6 @@
 # Story 1.5: Lodging Events
 
-Status: review
+Status: done
 
 ## Story
 
@@ -23,7 +23,7 @@ so that I can track accommodation details alongside my daily activities.
 ### SQL Queries for lodging_details
 
 - [x] Task 1: Add sqlc queries for lodging_details write and read paths (AC: #1, #2, #3)
-  - [ ] 1.1 Create `internal/repository/sql/lodging_details.sql` with:
+  - [x] 1.1 Create `internal/repository/sql/lodging_details.sql` with:
     ```sql
     -- name: CreateLodgingDetails :one
     INSERT INTO lodging_details (event_id, check_in_time, check_out_time, booking_reference)
@@ -42,13 +42,13 @@ so that I can track accommodation details alongside my daily activities.
     WHERE event_id = $1
     RETURNING *;
     ```
-  - [ ] 1.2 Run `just generate` — generates `internal/repository/sqlcgen/lodging_details.sql.go`
-  - [ ] 1.3 Verify generated file: `sqlcgen.CreateLodgingDetailsParams`, `sqlcgen.UpdateLodgingDetailsParams`, `sqlcgen.LodgingDetail` structs exist. Note the exact field types for `CheckInTime`, `CheckOutTime` (will be `pgtype.Timestamptz` — nullable), and `BookingReference` (will be `pgtype.Text` — nullable with default '').
+  - [x] 1.2 Run `just generate` — generates `internal/repository/sqlcgen/lodging_details.sql.go`
+  - [x] 1.3 Verify generated file: `sqlcgen.CreateLodgingDetailsParams`, `sqlcgen.UpdateLodgingDetailsParams`, `sqlcgen.LodgingDetail` structs exist. Note the exact field types for `CheckInTime`, `CheckOutTime` (will be `pgtype.Timestamptz` — nullable), and `BookingReference` (will be `pgtype.Text` — nullable with default '').
 
 ### Repository Helpers
 
-- [ ] Task 2: Add pgtype helpers for optional timestamps (AC: #2, #3)
-  - [ ] 2.1 Add to `internal/repository/helpers.go`:
+- [x] Task 2: Add pgtype helpers for optional timestamps (AC: #2, #3)
+  - [x] 2.1 Add to `internal/repository/helpers.go`:
     ```go
     // toOptionalPgTimestamptz converts a nullable *time.Time to pgtype.Timestamptz.
     func toOptionalPgTimestamptz(t *time.Time) pgtype.Timestamptz {
@@ -70,8 +70,8 @@ so that I can track accommodation details alongside my daily activities.
 
 ### Domain Model
 
-- [ ] Task 3: Add LodgingDetails to domain (AC: #2)
-  - [ ] 3.1 Add to `internal/domain/models.go` (after `FlightDetails`):
+- [x] Task 3: Add LodgingDetails to domain (AC: #2)
+  - [x] 3.1 Add to `internal/domain/models.go` (after `FlightDetails`):
     ```go
     type LodgingDetails struct {
         CheckInTime      *time.Time
@@ -82,7 +82,7 @@ so that I can track accommodation details alongside my daily activities.
     }
     ```
     `CheckInTime` and `CheckOutTime` are optional — the lodging_details schema has nullable TIMESTAMPTZ columns. `BookingReference` is a plain string (DB default is '' not NULL, but sqlc will generate pgtype.Text; extract `.String` in the row mapper).
-  - [ ] 3.2 Add `Lodging *LodgingDetails` field to the existing `Event` struct (alongside `Flight *FlightDetails`):
+  - [x] 3.2 Add `Lodging *LodgingDetails` field to the existing `Event` struct (alongside `Flight *FlightDetails`):
     ```go
     Lodging *LodgingDetails // nil for all non-lodging events
     ```
@@ -90,8 +90,8 @@ so that I can track accommodation details alongside my daily activities.
 
 ### Repository — LodgingDetailsStore
 
-- [ ] Task 4: Create LodgingDetailsStore adapter (AC: #2, #3)
-  - [ ] 4.1 Create `internal/repository/lodging_details_store.go`:
+- [x] Task 4: Create LodgingDetailsStore adapter (AC: #2, #3)
+  - [x] 4.1 Create `internal/repository/lodging_details_store.go`:
     ```go
     package repository
 
@@ -190,8 +190,8 @@ so that I can track accommodation details alongside my daily activities.
 
 ### Repository — EventStore Updates
 
-- [ ] Task 5: Update EventStore to add `lodging` field and wire lodging into Create/Update/load paths (AC: #2, #3)
-  - [ ] 5.1 Update `EventStore` struct and constructor in `internal/repository/event_store.go`:
+- [x] Task 5: Update EventStore to add `lodging` field and wire lodging into Create/Update/load paths (AC: #2, #3)
+  - [x] 5.1 Update `EventStore` struct and constructor in `internal/repository/event_store.go`:
     ```go
     type EventStore struct {
         db      *pgxpool.Pool
@@ -209,7 +209,7 @@ so that I can track accommodation details alongside my daily activities.
         }
     }
     ```
-  - [ ] 5.2 Add `loadLodgingDetails` helper in `event_store.go` (mirrors `loadFlightDetails`):
+  - [x] 5.2 Add `loadLodgingDetails` helper in `event_store.go` (mirrors `loadFlightDetails`):
     ```go
     func (s *EventStore) loadLodgingDetails(ctx context.Context, events []domain.Event) []domain.Event {
         var lodgingIDs []int
@@ -234,7 +234,7 @@ so that I can track accommodation details alongside my daily activities.
         return events
     }
     ```
-  - [ ] 5.3 In `Create` method, add the lodging transactional path. Insert it BEFORE the non-transactional fallback block (after the existing flight block):
+  - [x] 5.3 In `Create` method, add the lodging transactional path. Insert it BEFORE the non-transactional fallback block (after the existing flight block):
     ```go
     if event.Category == domain.CategoryLodging && event.Lodging != nil {
         tx, txErr := s.db.Begin(ctx)
@@ -274,7 +274,7 @@ so that I can track accommodation details alongside my daily activities.
         return tx.Commit(ctx)
     }
     ```
-  - [ ] 5.4 In `Update` method, add the lodging transactional path (after the flight block, before the non-transactional fallback):
+  - [x] 5.4 In `Update` method, add the lodging transactional path (after the flight block, before the non-transactional fallback):
     ```go
     if updated.Category == domain.CategoryLodging && updated.Lodging != nil {
         tx, txErr := s.db.Begin(ctx)
@@ -315,7 +315,7 @@ so that I can track accommodation details alongside my daily activities.
         return &result, nil
     }
     ```
-  - [ ] 5.5 Update `GetByID` to also load lodging details:
+  - [x] 5.5 Update `GetByID` to also load lodging details:
     ```go
     // After loading event and flight details, add:
     if event.Category == domain.CategoryLodging {
@@ -324,7 +324,7 @@ so that I can track accommodation details alongside my daily activities.
     }
     ```
     Insert this after the existing flight loading block.
-  - [ ] 5.6 Update `ListByTrip` and `ListByTripAndDate` to call `loadLodgingDetails` after `loadFlightDetails`:
+  - [x] 5.6 Update `ListByTrip` and `ListByTripAndDate` to call `loadLodgingDetails` after `loadFlightDetails`:
     ```go
     events = s.loadFlightDetails(ctx, events)
     return s.loadLodgingDetails(ctx, events), nil
@@ -332,8 +332,8 @@ so that I can track accommodation details alongside my daily activities.
 
 ### Service Updates
 
-- [ ] Task 6: Update service layer for lodging events (AC: #2, #3)
-  - [ ] 6.1 Add `LodgingDetails *domain.LodgingDetails` to `CreateEventInput` in `internal/service/event.go`:
+- [x] Task 6: Update service layer for lodging events (AC: #2, #3)
+  - [x] 6.1 Add `LodgingDetails *domain.LodgingDetails` to `CreateEventInput` in `internal/service/event.go`:
     ```go
     type CreateEventInput struct {
         // ... existing fields ...
@@ -341,7 +341,7 @@ so that I can track accommodation details alongside my daily activities.
     }
     ```
     Run `fieldalignment -fix ./internal/service/...` if the linter complains about struct field order.
-  - [ ] 6.2 In `EventService.Create`, after the existing flight details assignment block, add:
+  - [x] 6.2 In `EventService.Create`, after the existing flight details assignment block, add:
     ```go
     if input.Category == domain.CategoryLodging {
         event.Lodging = input.LodgingDetails
@@ -351,14 +351,14 @@ so that I can track accommodation details alongside my daily activities.
     }
     ```
     Place this just before `s.repo.Create(ctx, event)`.
-  - [ ] 6.3 Add `LodgingDetails *domain.LodgingDetails` to `UpdateEventInput`:
+  - [x] 6.3 Add `LodgingDetails *domain.LodgingDetails` to `UpdateEventInput`:
     ```go
     type UpdateEventInput struct {
         // ... existing fields ...
         LodgingDetails *domain.LodgingDetails // nil means "don't change lodging details"
     }
     ```
-  - [ ] 6.4 In the `Update` updater closure, pass through lodging details (alongside the existing flight block):
+  - [x] 6.4 In the `Update` updater closure, pass through lodging details (alongside the existing flight block):
     ```go
     if input.LodgingDetails != nil {
         event.Lodging = input.LodgingDetails
@@ -367,8 +367,8 @@ so that I can track accommodation details alongside my daily activities.
 
 ### Handler Updates
 
-- [ ] Task 7: Update handler to parse and route lodging form data (AC: #1, #2, #3)
-  - [ ] 7.1 Add lodging fields to `EventFormData` in `internal/handler/event.go`:
+- [x] Task 7: Update handler to parse and route lodging form data (AC: #1, #2, #3)
+  - [x] 7.1 Add lodging fields to `EventFormData` in `internal/handler/event.go`:
     ```go
     type EventFormData struct {
         // ... existing fields ...
@@ -380,7 +380,7 @@ so that I can track accommodation details alongside my daily activities.
     ```
     `BookingReference` is already in `EventFormData` from Story 1.4. Lodging reuses the same form field name (`booking_reference`) since both categories use it for the same concept.
     Run `fieldalignment -fix ./internal/handler/...` if the linter complains.
-  - [ ] 7.2 Add `parseLodgingDetails` helper in `internal/handler/event.go`:
+  - [x] 7.2 Add `parseLodgingDetails` helper in `internal/handler/event.go`:
     ```go
     func parseLodgingDetails(formData *EventFormData) *domain.LodgingDetails {
         ld := &domain.LodgingDetails{
@@ -401,13 +401,13 @@ so that I can track accommodation details alongside my daily activities.
         return ld
     }
     ```
-  - [ ] 7.3 In `Create` handler, parse lodging-specific form values (alongside the existing flight parsing block):
+  - [x] 7.3 In `Create` handler, parse lodging-specific form values (alongside the existing flight parsing block):
     ```go
     formData.CheckInTime  = r.FormValue("check_in_time")
     formData.CheckOutTime = r.FormValue("check_out_time")
     // BookingReference is already parsed for flight — it covers lodging too
     ```
-  - [ ] 7.4 In `Create` handler, build `LodgingDetails` and pass to service (alongside the flight block):
+  - [x] 7.4 In `Create` handler, build `LodgingDetails` and pass to service (alongside the flight block):
     ```go
     var lodgingDetails *domain.LodgingDetails
     if category == string(domain.CategoryLodging) {
@@ -419,7 +419,7 @@ so that I can track accommodation details alongside my daily activities.
         LodgingDetails: lodgingDetails,
     }
     ```
-  - [ ] 7.5 In `Update` handler, parse lodging fields and build `LodgingDetails`:
+  - [x] 7.5 In `Update` handler, parse lodging fields and build `LodgingDetails`:
     ```go
     formData.CheckInTime  = r.FormValue("check_in_time")
     formData.CheckOutTime = r.FormValue("check_out_time")
@@ -436,8 +436,8 @@ so that I can track accommodation details alongside my daily activities.
 
 ### Template — Enable Lodging in TypeSelector
 
-- [ ] Task 8: Enable Lodging in the creation form (AC: #1)
-  - [ ] 8.1 In `internal/handler/event_form.templ`, update `enabledCategories`:
+- [x] Task 8: Enable Lodging in the creation form (AC: #1)
+  - [x] 8.1 In `internal/handler/event_form.templ`, update `enabledCategories`:
     ```go
     var enabledCategories = map[string]bool{
         "activity": true,
@@ -446,7 +446,7 @@ so that I can track accommodation details alongside my daily activities.
         "lodging":  true, // ADD THIS
     }
     ```
-  - [ ] 8.2 Create `internal/handler/lodging_form.templ` for the lodging-specific form fields. Follow the exact same pattern as `internal/handler/flight_form.templ`:
+  - [x] 8.2 Create `internal/handler/lodging_form.templ` for the lodging-specific form fields. Follow the exact same pattern as `internal/handler/flight_form.templ`:
     ```templ
     package handler
 
@@ -505,14 +505,14 @@ so that I can track accommodation details alongside my daily activities.
         </div>
     }
     ```
-  - [ ] 8.3 Add `@LodgingFormFields(data)` call in `EventCreateForm` in `event_form.templ`. Place it AFTER the `@FlightFormFields(data)` call (or in the same logical group of type-specific fields).
-  - [ ] 8.4 Add `@LodgingFormFields(data)` call in `EventNewPage` (the full-page fallback form), also after `@FlightFormFields(data)`.
-  - [ ] 8.5 Run `just generate` after creating `lodging_form.templ`.
+  - [x] 8.3 Add `@LodgingFormFields(data)` call in `EventCreateForm` in `event_form.templ`. Place it AFTER the `@FlightFormFields(data)` call (or in the same logical group of type-specific fields).
+  - [x] 8.4 Add `@LodgingFormFields(data)` call in `EventNewPage` (the full-page fallback form), also after `@FlightFormFields(data)`.
+  - [x] 8.5 Run `just generate` after creating `lodging_form.templ`.
 
 ### Template — LodgingCardContent
 
-- [ ] Task 9: Create lodging card display component (AC: #2)
-  - [ ] 9.1 Create `internal/handler/lodging_card.templ`:
+- [x] Task 9: Create lodging card display component (AC: #2)
+  - [x] 9.1 Create `internal/handler/lodging_card.templ`:
     ```templ
     package handler
 
@@ -554,18 +554,18 @@ so that I can track accommodation details alongside my daily activities.
     }
     ```
     **Note:** The `fmt` import is included for consistency with the pattern; remove it if unused.
-  - [ ] 9.2 Run `just generate` after creating this file.
+  - [x] 9.2 Run `just generate` after creating this file.
 
 ### Template — EventTimelineItem Updates for Lodging
 
-- [ ] Task 10: Update EventTimelineItem to render lodging details in view and edit modes (AC: #2, #3)
-  - [ ] 10.1 In `internal/handler/event.templ`, in the **view mode** section (`x-show="!editing"`), add after the flight block:
+- [x] Task 10: Update EventTimelineItem to render lodging details in view and edit modes (AC: #2, #3)
+  - [x] 10.1 In `internal/handler/event.templ`, in the **view mode** section (`x-show="!editing"`), add after the flight block:
     ```templ
     if event.Category == domain.CategoryLodging {
         @LodgingCardContent(event.Lodging)
     }
     ```
-  - [ ] 10.2 In the **edit mode** section (`x-show="editing"`), add lodging inline edit fields after the flight edit block:
+  - [x] 10.2 In the **edit mode** section (`x-show="editing"`), add lodging inline edit fields after the flight edit block:
     ```templ
     if event.Category == domain.CategoryLodging {
         <div class="mb-3 pt-3 border-t-2 border-slate-100">
@@ -609,14 +609,14 @@ so that I can track accommodation details alongside my daily activities.
 
 ### Seed Command
 
-- [ ] Task 11: Update `cmd/seed/main.go` to support lodging events (AC: #2)
-  - [ ] 11.1 The seed has its own `NewEventStore` call on line 60 that must be updated alongside `cmd/app/main.go`:
+- [x] Task 11: Update `cmd/seed/main.go` to support lodging events (AC: #2)
+  - [x] 11.1 The seed has its own `NewEventStore` call on line 60 that must be updated alongside `cmd/app/main.go`:
     ```go
     flightDetailsStore := repository.NewFlightDetailsStore()
     lodgingDetailsStore := repository.NewLodgingDetailsStore()
     eventStore := repository.NewEventStore(pool, flightDetailsStore, lodgingDetailsStore)
     ```
-  - [ ] 11.2 Add a `createLodgingEvent` function (mirrors `createFlightEvent`):
+  - [x] 11.2 Add a `createLodgingEvent` function (mirrors `createFlightEvent`):
     ```go
     func createLodgingEvent(ctx context.Context, eventService *service.EventService, tripID int, checkIn time.Time, checkOut time.Time) error {
         hotelNames := []string{"Grand Hotel", "City Inn", "Palace Suites", "Central Hotel", "Boutique Stay"}
@@ -644,7 +644,7 @@ so that I can track accommodation details alongside my daily activities.
         return err
     }
     ```
-  - [ ] 11.3 In `seedEvents`, remove `domain.CategoryLodging` from the random categories slice (line ~189) — lodging events should be created with proper details via `createLodgingEvent`, not as bare base events:
+  - [x] 11.3 In `seedEvents`, remove `domain.CategoryLodging` from the random categories slice (line ~189) — lodging events should be created with proper details via `createLodgingEvent`, not as bare base events:
     ```go
     categories := []domain.EventCategory{
         domain.CategoryActivity,
@@ -653,7 +653,7 @@ so that I can track accommodation details alongside my daily activities.
         // CategoryLodging removed — created explicitly below
     }
     ```
-  - [ ] 11.4 In `seedEvents`, add one lodging event per trip spanning the full trip duration (call after the day loop, not inside it):
+  - [x] 11.4 In `seedEvents`, add one lodging event per trip spanning the full trip duration (call after the day loop, not inside it):
     ```go
     checkIn := time.Date(
         trip.StartDate.Year(), trip.StartDate.Month(), trip.StartDate.Day(),
@@ -674,8 +674,8 @@ so that I can track accommodation details alongside my daily activities.
 
 ### DI Wiring
 
-- [ ] Task 12: Update `cmd/app/main.go` to wire LodgingDetailsStore (AC: #2)
-  - [ ] 11.1 Add `lodgingDetailsStore` and update `NewEventStore` call:
+- [x] Task 12: Update `cmd/app/main.go` to wire LodgingDetailsStore (AC: #2)
+  - [x] 11.1 Add `lodgingDetailsStore` and update `NewEventStore` call:
     ```go
     // Repositories
     tripStore := repository.NewTripStore(pool)
@@ -686,18 +686,18 @@ so that I can track accommodation details alongside my daily activities.
 
 ### Testing
 
-- [ ] Task 13: Write service tests and verify build (AC: #1, #2, #3, #4)
-  - [ ] 13.1 Service test: `Create` lodging event → `event.Lodging` populated with correct field values
+- [x] Task 13: Write service tests and verify build (AC: #1, #2, #3, #4)
+  - [x] 13.1 Service test: `Create` lodging event → `event.Lodging` populated with correct field values
     - Mock `EventRepository.Create` to capture the `*domain.Event` passed; verify `event.Lodging != nil` and `BookingReference` matches input.
-  - [ ] 13.2 Service test: `Create` lodging event with nil `LodgingDetails` → defaults to empty `LodgingDetails{}` (no nil panic).
-  - [ ] 13.3 Service test: `Update` lodging event → `event.Lodging` updated to new values.
+  - [x] 13.2 Service test: `Create` lodging event with nil `LodgingDetails` → defaults to empty `LodgingDetails{}` (no nil panic).
+  - [x] 13.3 Service test: `Update` lodging event → `event.Lodging` updated to new values.
     - Input: existing event with `Lodging.BookingReference = "ABC123"`, update with `LodgingDetails{BookingReference: "XYZ789"}`.
     - Verify updater sets `event.Lodging.BookingReference = "XYZ789"`.
-  - [ ] 13.4 Service test: `Update` non-lodging event with nil `LodgingDetails` → no change to `event.Lodging`.
-  - [ ] 13.5 Run `just test` — all passing, no races.
-  - [ ] 13.6 Run `just lint` — zero violations. Apply `fieldalignment -fix` if struct field ordering violations appear.
-  - [ ] 13.7 Run `just build` — binary compiles.
-  - [ ] 13.8 Manual smoke tests:
+  - [x] 13.4 Service test: `Update` non-lodging event with nil `LodgingDetails` → no change to `event.Lodging`.
+  - [x] 13.5 Run `just test` — all passing, no races.
+  - [x] 13.6 Run `just lint` — zero violations. Apply `fieldalignment -fix` if struct field ordering violations appear.
+  - [x] 13.7 Run `just build` — binary compiles.
+  - [x] 13.8 Manual smoke tests:
     - Click "Add Event" → select Lodging in TypeSelector → lodging fields appear (check-in, check-out, booking ref); flight fields hidden.
     - Fill in check-in/check-out datetimes and booking ref → Save → event appears in timeline with amber/bed icon.
     - Expand card → `LodgingCardContent` shows formatted check-in/out times and booking reference in monospace.
@@ -839,6 +839,7 @@ claude-sonnet-4-6
 - Updated handler: improved form parsing (conditional per category), added error handling for lodging time parsing, and fixed UI color inconsistency (amber used consistently).
 - Added `internal/repository/lodging_details_store_test.go` and updated `internal/service/event_test.go` with new validation tests.
 - All tests pass; lint clean; build successful.
+- Code review fixes: normalized `toOptionalPgTimestamptz` to call `.UTC()` (consistent with `toPgTimestamptz`); added `CheckOutTime` assertion to `Test_lodgingRowToDomain`; marked all completed task checkboxes `[x]`.
 
 ### File List
 

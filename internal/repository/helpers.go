@@ -39,7 +39,7 @@ func toOptionalPgTimestamptz(t *time.Time) pgtype.Timestamptz {
 	if t == nil {
 		return pgtype.Timestamptz{Valid: false}
 	}
-	return pgtype.Timestamptz{Time: *t, Valid: true}
+	return pgtype.Timestamptz{Time: t.UTC(), Valid: true}
 }
 
 func fromPgTimestamptz(t pgtype.Timestamptz) *time.Time {
