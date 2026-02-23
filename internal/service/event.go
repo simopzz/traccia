@@ -29,17 +29,18 @@ func NewEventService(repo EventStore) *EventService {
 }
 
 type CreateEventInput struct {
-	StartTime     time.Time
-	EndTime       time.Time
-	Latitude      *float64
-	Longitude     *float64
-	FlightDetails *domain.FlightDetails
-	Title         string
-	Category      domain.EventCategory
-	Location      string
-	Notes         string
-	TripID        int
-	Pinned        bool
+	StartTime      time.Time
+	EndTime        time.Time
+	Latitude       *float64
+	Longitude      *float64
+	FlightDetails  *domain.FlightDetails
+	LodgingDetails *domain.LodgingDetails
+	Title          string
+	Category       domain.EventCategory
+	Location       string
+	Notes          string
+	TripID         int
+	Pinned         bool
 }
 
 func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*domain.Event, error) {
@@ -87,6 +88,15 @@ func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*do
 		}
 	}
 
+	if input.Category == domain.CategoryLodging {
+		event.Lodging = input.LodgingDetails
+		if event.Lodging == nil {
+			event.Lodging = &domain.LodgingDetails{}
+		} else if event.Lodging.CheckInTime != nil && event.Lodging.CheckOutTime != nil && !event.Lodging.CheckOutTime.After(*event.Lodging.CheckInTime) {
+			return nil, fmt.Errorf("%w: check-out time must be after check-in time", domain.ErrInvalidInput)
+		}
+	}
+
 	if err := s.repo.Create(ctx, event); err != nil {
 		return nil, err
 	}
@@ -111,17 +121,18 @@ func (s *EventService) CountByTrip(ctx context.Context, tripID int) (int, error)
 }
 
 type UpdateEventInput struct {
-	Title         *string
-	Category      *domain.EventCategory
-	Location      *string
-	Latitude      *float64
-	Longitude     *float64
-	StartTime     *time.Time
-	EndTime       *time.Time
-	Pinned        *bool
-	Position      *int
-	Notes         *string
-	FlightDetails *domain.FlightDetails // nil means "don't change flight details"
+	Title          *string
+	Category       *domain.EventCategory
+	Location       *string
+	Latitude       *float64
+	Longitude      *float64
+	StartTime      *time.Time
+	EndTime        *time.Time
+	Pinned         *bool
+	Position       *int
+	Notes          *string
+	FlightDetails  *domain.FlightDetails  // nil means "don't change flight details"
+	LodgingDetails *domain.LodgingDetails // nil means "don't change lodging details"
 }
 
 func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInput) (*domain.Event, error) {
@@ -148,6 +159,13 @@ func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInp
 			return nil, fmt.Errorf("%w: end time must be after start time", domain.ErrInvalidInput)
 		}
 	}
+
+	// When both lodging times are in the input, validate before starting the update.
+	if input.LodgingDetails != nil && input.LodgingDetails.CheckInTime != nil && input.LodgingDetails.CheckOutTime != nil &&
+		!input.LodgingDetails.CheckOutTime.After(*input.LodgingDetails.CheckInTime) {
+		return nil, fmt.Errorf("%w: lodging check-out time must be after check-in time", domain.ErrInvalidInput)
+	}
+
 	return s.repo.Update(ctx, id, func(event *domain.Event) *domain.Event {
 		if input.Title != nil {
 			event.Title = *input.Title
@@ -182,6 +200,9 @@ func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInp
 		}
 		if input.FlightDetails != nil {
 			event.Flight = input.FlightDetails
+		}
+		if input.LodgingDetails != nil {
+			event.Lodging = input.LodgingDetails
 		}
 		return event
 	})

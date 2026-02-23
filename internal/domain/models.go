@@ -37,6 +37,14 @@ func IsValidEventCategory(c EventCategory) bool {
 	return false
 }
 
+type LodgingDetails struct {
+	CheckInTime      *time.Time
+	CheckOutTime     *time.Time
+	BookingReference string
+	ID               int
+	EventID          int
+}
+
 type FlightDetails struct {
 	Airline           string
 	FlightNumber      string
@@ -60,6 +68,7 @@ type Event struct {
 	Longitude *float64
 	Latitude  *float64
 	Flight    *FlightDetails
+	Lodging   *LodgingDetails
 	Category  EventCategory
 	Title     string
 	Location  string

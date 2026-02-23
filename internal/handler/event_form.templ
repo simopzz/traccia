@@ -27,6 +27,7 @@ var enabledCategories = map[string]bool{
 	"activity": true,
 	"food":     true,
 	"flight":   true,
+	"lodging":  true,
 }
 
 templ TypeSelector(selected string) {
@@ -202,6 +203,10 @@ templ EventCreateForm(data *EventFormData) {
 			<!-- Flight-specific fields (Alpine.js x-show) -->
 			<div x-show="selected === 'flight'">
 				@FlightFormFields(*data)
+			</div>
+			<!-- Lodging-specific fields (Alpine.js x-show) -->
+			<div x-show="selected === 'lodging'">
+				@LodgingFormFields(*data)
 			</div>
 			<!-- Actions -->
 			<div class="flex gap-3">

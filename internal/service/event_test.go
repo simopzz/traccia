@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -846,6 +847,133 @@ func TestEventService_Update_NonFlightEvent_NilDetailsUnchanged(t *testing.T) {
 	}
 }
 
+// Tests for Story 1.5: Lodging event creation, nil-safety, and update.
+
+func TestEventService_Create_LodgingEvent_PopulatesLodgingDetails(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	checkIn := time.Date(2026, 6, 1, 15, 0, 0, 0, time.UTC)
+	checkOut := time.Date(2026, 6, 5, 11, 0, 0, 0, time.UTC)
+
+	input := &service.CreateEventInput{
+		TripID:    1,
+		Title:     "Grand Hotel",
+		Category:  domain.CategoryLodging,
+		StartTime: checkIn,
+		EndTime:   checkOut,
+		LodgingDetails: &domain.LodgingDetails{
+			CheckInTime:      &checkIn,
+			CheckOutTime:     &checkOut,
+			BookingReference: "HTL12345",
+		},
+	}
+
+	event, err := svc.Create(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+	if event.Lodging == nil {
+		t.Fatal("Create() event.Lodging is nil, expected non-nil for lodging event")
+	}
+	if event.Lodging.BookingReference != "HTL12345" {
+		t.Errorf("Lodging.BookingReference = %q, want %q", event.Lodging.BookingReference, "HTL12345")
+	}
+}
+
+func TestEventService_Create_LodgingEvent_NilDetailsDefaultsToEmpty(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	checkIn := time.Date(2026, 6, 1, 15, 0, 0, 0, time.UTC)
+	checkOut := time.Date(2026, 6, 5, 11, 0, 0, 0, time.UTC)
+
+	input := &service.CreateEventInput{
+		TripID:         1,
+		Title:          "Mystery Hotel",
+		Category:       domain.CategoryLodging,
+		StartTime:      checkIn,
+		EndTime:        checkOut,
+		LodgingDetails: nil, // explicitly nil
+	}
+
+	event, err := svc.Create(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+	if event.Lodging == nil {
+		t.Fatal("Create() event.Lodging is nil for lodging category, expected empty LodgingDetails{}")
+	}
+	if event.Lodging.BookingReference != "" {
+		t.Errorf("Lodging.BookingReference = %q, want empty", event.Lodging.BookingReference)
+	}
+}
+
+func TestEventService_Update_LodgingEvent_UpdatesLodgingDetails(t *testing.T) {
+	oldCheckIn := time.Date(2026, 6, 1, 15, 0, 0, 0, time.UTC)
+	oldCheckOut := time.Date(2026, 6, 5, 11, 0, 0, 0, time.UTC)
+
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:        1,
+		TripID:    1,
+		Title:     "Grand Hotel",
+		Category:  domain.CategoryLodging,
+		StartTime: oldCheckIn,
+		EndTime:   oldCheckOut,
+		Lodging: &domain.LodgingDetails{
+			BookingReference: "ABC123",
+			CheckInTime:      &oldCheckIn,
+			CheckOutTime:     &oldCheckOut,
+		},
+	}
+	svc := service.NewEventService(repo)
+
+	updatedDetails := &domain.LodgingDetails{
+		BookingReference: "XYZ789",
+	}
+	event, err := svc.Update(context.Background(), 1, &service.UpdateEventInput{
+		LodgingDetails: updatedDetails,
+	})
+	if err != nil {
+		t.Fatalf("Update() unexpected error: %v", err)
+	}
+	if event.Lodging == nil {
+		t.Fatal("Update() event.Lodging is nil")
+	}
+	if event.Lodging.BookingReference != "XYZ789" {
+		t.Errorf("Lodging.BookingReference = %q, want %q", event.Lodging.BookingReference, "XYZ789")
+	}
+}
+
+func TestEventService_Update_NonLodgingEvent_NilLodgingDetailsUnchanged(t *testing.T) {
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:        1,
+		TripID:    1,
+		Title:     "Walk in Park",
+		Category:  domain.CategoryActivity,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		Lodging:   nil,
+	}
+	svc := service.NewEventService(repo)
+
+	event, err := svc.Update(context.Background(), 1, &service.UpdateEventInput{
+		Title:          strPtr("Updated Walk"),
+		LodgingDetails: nil,
+	})
+	if err != nil {
+		t.Fatalf("Update() unexpected error: %v", err)
+	}
+	if event.Lodging != nil {
+		t.Error("Update() event.Lodging should remain nil for non-lodging event")
+	}
+	if event.Title != "Updated Walk" {
+		t.Errorf("Title = %q, want %q", event.Title, "Updated Walk")
+	}
+}
+
 func TestEventService_SuggestDefaults_FlightDuration(t *testing.T) {
 	repo := newMockEventRepo()
 	svc := service.NewEventService(repo)
@@ -857,5 +985,59 @@ func TestEventService_SuggestDefaults_FlightDuration(t *testing.T) {
 	wantDuration := 3 * time.Hour
 	if gotDuration != wantDuration {
 		t.Errorf("Flight duration = %v, want %v", gotDuration, wantDuration)
+	}
+}
+
+func TestEventService_Create_Lodging_Validation(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	checkIn := time.Date(2026, 6, 1, 15, 0, 0, 0, time.UTC)
+	checkOut := time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC) // Before check-in
+
+	input := &service.CreateEventInput{
+		TripID:    1,
+		Title:     "Invalid Times",
+		Category:  domain.CategoryLodging,
+		StartTime: checkIn,
+		EndTime:   checkIn.Add(2 * time.Hour), // Valid base times
+		LodgingDetails: &domain.LodgingDetails{
+			CheckInTime:  &checkIn,
+			CheckOutTime: &checkOut,
+		},
+	}
+
+	_, err := svc.Create(context.Background(), input)
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("Create() error = %v, want ErrInvalidInput", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "check-out time must be after check-in time") {
+		t.Errorf("Create() error message mismatch: %v", err)
+	}
+}
+
+func TestEventService_Update_Lodging_Validation(t *testing.T) {
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:       1,
+		TripID:   1,
+		Category: domain.CategoryLodging,
+		Title:    "Hotel",
+	}
+	svc := service.NewEventService(repo)
+
+	checkIn := time.Date(2026, 6, 1, 15, 0, 0, 0, time.UTC)
+	checkOut := time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC) // Before check-in
+
+	input := &service.UpdateEventInput{
+		LodgingDetails: &domain.LodgingDetails{
+			CheckInTime:  &checkIn,
+			CheckOutTime: &checkOut,
+		},
+	}
+
+	_, err := svc.Update(context.Background(), 1, input)
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("Update() error = %v, want ErrInvalidInput", err)
 	}
 }
