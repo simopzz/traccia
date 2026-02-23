@@ -24,16 +24,25 @@ type EventCardProps struct {
 
 // EventFormData is used for both initial render and error re-render of the event creation form.
 type EventFormData struct {
-	Errors    map[string]string
-	Date      string // "2006-01-02"
-	Category  string
-	Title     string
-	Location  string
-	StartTime string // "HH:MM"
-	EndTime   string // "HH:MM"
-	Notes     string
-	TripID    int
-	Pinned    bool
+	Errors            map[string]string
+	DepartureAirport  string
+	FlightNumber      string
+	Title             string
+	Location          string
+	StartTime         string
+	EndTime           string
+	Notes             string
+	BookingReference  string
+	Category          string
+	ArrivalGate       string
+	Airline           string
+	Date              string
+	ArrivalAirport    string
+	DepartureTerminal string
+	ArrivalTerminal   string
+	DepartureGate     string
+	TripID            int
+	Pinned            bool
 }
 
 // renderEventFormError sends a 422 response with the appropriate form template.
@@ -120,16 +129,27 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 	notes := r.FormValue("notes")
 	pinned := r.FormValue("pinned") == "on" || r.FormValue("pinned") == "true"
 
+	flightDetails := parseFlightDetails(r)
+
 	formData := &EventFormData{
-		TripID:    tripID,
-		Date:      dateStr,
-		Category:  category,
-		Title:     title,
-		Location:  location,
-		StartTime: startTimeStr,
-		EndTime:   endTimeStr,
-		Notes:     notes,
-		Pinned:    pinned,
+		TripID:            tripID,
+		Date:              dateStr,
+		Category:          category,
+		Title:             title,
+		Location:          location,
+		StartTime:         startTimeStr,
+		EndTime:           endTimeStr,
+		Notes:             notes,
+		Pinned:            pinned,
+		Airline:           flightDetails.Airline,
+		FlightNumber:      flightDetails.FlightNumber,
+		DepartureAirport:  flightDetails.DepartureAirport,
+		ArrivalAirport:    flightDetails.ArrivalAirport,
+		DepartureTerminal: flightDetails.DepartureTerminal,
+		ArrivalTerminal:   flightDetails.ArrivalTerminal,
+		DepartureGate:     flightDetails.DepartureGate,
+		ArrivalGate:       flightDetails.ArrivalGate,
+		BookingReference:  flightDetails.BookingReference,
 	}
 
 	// Handler pre-validates required fields for field-level errors
@@ -146,8 +166,18 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if dateStr == "" {
 		formErrors["date"] = "Date is required"
 	}
-	if category != "" && category != string(domain.CategoryActivity) && category != string(domain.CategoryFood) {
-		formErrors["category"] = "Only Activity and Food events are currently supported"
+	if category != "" && !domain.IsValidEventCategory(domain.EventCategory(category)) {
+		formErrors["category"] = "Invalid event type"
+	}
+
+	// Validate flight fields
+	if category == string(domain.CategoryFlight) {
+		if flightDetails.DepartureAirport == "" {
+			formErrors["departure_airport"] = "Required"
+		}
+		if flightDetails.ArrivalAirport == "" {
+			formErrors["arrival_airport"] = "Required"
+		}
 	}
 
 	if len(formErrors) > 0 {
@@ -172,15 +202,21 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var serviceFlightDetails *domain.FlightDetails
+	if category == string(domain.CategoryFlight) {
+		serviceFlightDetails = flightDetails
+	}
+
 	input := &service.CreateEventInput{
-		TripID:    tripID,
-		Title:     title,
-		Category:  domain.EventCategory(category),
-		Location:  location,
-		StartTime: startTime,
-		EndTime:   endTime,
-		Notes:     notes,
-		Pinned:    pinned,
+		TripID:        tripID,
+		Title:         title,
+		Category:      domain.EventCategory(category),
+		Location:      location,
+		StartTime:     startTime,
+		EndTime:       endTime,
+		Notes:         notes,
+		Pinned:        pinned,
+		FlightDetails: serviceFlightDetails,
 	}
 
 	event, err := h.eventService.Create(r.Context(), input)
@@ -285,15 +321,26 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	notes := r.FormValue("notes")
 	pinned := r.FormValue("pinned") == "on" || r.FormValue("pinned") == "true"
 
+	flightDetails := parseFlightDetails(r)
+
 	formData := EventFormData{
-		TripID:    tripID,
-		Date:      dateStr,
-		Title:     title,
-		Location:  location,
-		StartTime: startTimeStr,
-		EndTime:   endTimeStr,
-		Notes:     notes,
-		Pinned:    pinned,
+		TripID:            tripID,
+		Date:              dateStr,
+		Title:             title,
+		Location:          location,
+		StartTime:         startTimeStr,
+		EndTime:           endTimeStr,
+		Notes:             notes,
+		Pinned:            pinned,
+		Airline:           flightDetails.Airline,
+		FlightNumber:      flightDetails.FlightNumber,
+		DepartureAirport:  flightDetails.DepartureAirport,
+		ArrivalAirport:    flightDetails.ArrivalAirport,
+		DepartureTerminal: flightDetails.DepartureTerminal,
+		ArrivalTerminal:   flightDetails.ArrivalTerminal,
+		DepartureGate:     flightDetails.DepartureGate,
+		ArrivalGate:       flightDetails.ArrivalGate,
+		BookingReference:  flightDetails.BookingReference,
 	}
 
 	formErrors := make(map[string]string)
@@ -308,6 +355,16 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	if dateStr == "" {
 		formErrors["date"] = "Date is required"
+	}
+
+	// Validate flight fields
+	if event.Category == domain.CategoryFlight {
+		if flightDetails.DepartureAirport == "" {
+			formErrors["departure_airport"] = "Required"
+		}
+		if flightDetails.ArrivalAirport == "" {
+			formErrors["arrival_airport"] = "Required"
+		}
 	}
 
 	// renderCardError sends a 422 with the inline edit card (HTMX) or redirects to
@@ -346,14 +403,19 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	category := event.Category // preserve existing category
+	var serviceFlightDetails *domain.FlightDetails
+	if event.Category == domain.CategoryFlight {
+		serviceFlightDetails = flightDetails
+	}
 	input := &service.UpdateEventInput{
-		Title:     &title,
-		Category:  &category,
-		Location:  &location,
-		StartTime: &startTime,
-		EndTime:   &endTime,
-		Notes:     &notes,
-		Pinned:    &pinned,
+		Title:         &title,
+		Category:      &category,
+		Location:      &location,
+		StartTime:     &startTime,
+		EndTime:       &endTime,
+		Notes:         &notes,
+		Pinned:        &pinned,
+		FlightDetails: serviceFlightDetails,
 	}
 
 	updatedEvent, err := h.eventService.Update(r.Context(), id, input)
@@ -498,4 +560,18 @@ func (h *EventHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("HX-Reswap", "outerHTML")
 	w.Header().Set("HX-Trigger", `{"hideUndoToast": true}`)
 	templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
+}
+
+func parseFlightDetails(r *http.Request) *domain.FlightDetails {
+	return &domain.FlightDetails{
+		Airline:           r.FormValue("airline"),
+		FlightNumber:      r.FormValue("flight_number"),
+		DepartureAirport:  r.FormValue("departure_airport"),
+		ArrivalAirport:    r.FormValue("arrival_airport"),
+		DepartureTerminal: r.FormValue("departure_terminal"),
+		ArrivalTerminal:   r.FormValue("arrival_terminal"),
+		DepartureGate:     r.FormValue("departure_gate"),
+		ArrivalGate:       r.FormValue("arrival_gate"),
+		BookingReference:  r.FormValue("booking_reference"),
+	}
 }

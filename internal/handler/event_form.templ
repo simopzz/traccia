@@ -26,11 +26,11 @@ var categoryLabels = map[string]string{
 var enabledCategories = map[string]bool{
 	"activity": true,
 	"food":     true,
+	"flight":   true,
 }
 
 templ TypeSelector(selected string) {
 	<div
-		x-data={ fmt.Sprintf(`{ selected: '%s' }`, selected) }
 		role="radiogroup"
 		aria-label="Event type"
 		class="flex gap-2 mb-6"
@@ -92,6 +92,7 @@ templ EventCreateForm(data *EventFormData) {
 			hx-post={ fmt.Sprintf("/trips/%d/events", data.TripID) }
 			hx-target="#sheet-form"
 			hx-swap="innerHTML"
+			x-data={ fmt.Sprintf(`{ selected: '%s' }`, data.Category) }
 		>
 			@TypeSelector(data.Category)
 			<input type="hidden" name="date" value={ data.Date }/>
@@ -197,6 +198,10 @@ templ EventCreateForm(data *EventFormData) {
 					</span>
 					Pin this event
 				</label>
+			</div>
+			<!-- Flight-specific fields (Alpine.js x-show) -->
+			<div x-show="selected === 'flight'">
+				@FlightFormFields(*data)
 			</div>
 			<!-- Actions -->
 			<div class="flex gap-3">

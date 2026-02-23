@@ -29,16 +29,17 @@ func NewEventService(repo EventStore) *EventService {
 }
 
 type CreateEventInput struct {
-	StartTime time.Time
-	EndTime   time.Time
-	Title     string
-	Category  domain.EventCategory
-	Latitude  *float64
-	Longitude *float64
-	Location  string
-	Notes     string
-	TripID    int
-	Pinned    bool
+	StartTime     time.Time
+	EndTime       time.Time
+	Latitude      *float64
+	Longitude     *float64
+	FlightDetails *domain.FlightDetails
+	Title         string
+	Category      domain.EventCategory
+	Location      string
+	Notes         string
+	TripID        int
+	Pinned        bool
 }
 
 func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*domain.Event, error) {
@@ -79,6 +80,13 @@ func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*do
 		Notes:     input.Notes,
 	}
 
+	if input.Category == domain.CategoryFlight {
+		event.Flight = input.FlightDetails
+		if event.Flight == nil {
+			event.Flight = &domain.FlightDetails{}
+		}
+	}
+
 	if err := s.repo.Create(ctx, event); err != nil {
 		return nil, err
 	}
@@ -103,16 +111,17 @@ func (s *EventService) CountByTrip(ctx context.Context, tripID int) (int, error)
 }
 
 type UpdateEventInput struct {
-	Title     *string
-	Category  *domain.EventCategory
-	Location  *string
-	Latitude  *float64
-	Longitude *float64
-	StartTime *time.Time
-	EndTime   *time.Time
-	Pinned    *bool
-	Position  *int
-	Notes     *string
+	Title         *string
+	Category      *domain.EventCategory
+	Location      *string
+	Latitude      *float64
+	Longitude     *float64
+	StartTime     *time.Time
+	EndTime       *time.Time
+	Pinned        *bool
+	Position      *int
+	Notes         *string
+	FlightDetails *domain.FlightDetails // nil means "don't change flight details"
 }
 
 func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInput) (*domain.Event, error) {
@@ -170,6 +179,9 @@ func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInp
 		}
 		if input.Notes != nil {
 			event.Notes = *input.Notes
+		}
+		if input.FlightDetails != nil {
+			event.Flight = input.FlightDetails
 		}
 		return event
 	})
@@ -230,6 +242,8 @@ func durationForCategory(category domain.EventCategory) time.Duration {
 	switch category {
 	case domain.CategoryFood:
 		return DefaultFoodDuration
+	case domain.CategoryFlight:
+		return 3 * time.Hour
 	default:
 		return DefaultActivityDuration
 	}

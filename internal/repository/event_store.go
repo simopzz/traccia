@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -15,12 +17,16 @@ import (
 var _ domain.EventRepository = (*EventStore)(nil)
 
 type EventStore struct {
+	db      *pgxpool.Pool
 	queries *sqlcgen.Queries
+	flight  *FlightDetailsStore
 }
 
-func NewEventStore(db *pgxpool.Pool) *EventStore {
+func NewEventStore(db *pgxpool.Pool, flightStore *FlightDetailsStore) *EventStore {
 	return &EventStore{
+		db:      db,
 		queries: sqlcgen.New(db),
+		flight:  flightStore,
 	}
 }
 
@@ -37,6 +43,47 @@ func (s *EventStore) Create(ctx context.Context, event *domain.Event) error {
 		position = int32(event.Position)
 	}
 
+	if event.Category == domain.CategoryFlight && event.Flight != nil {
+		// Transactional: insert base event + flight_details atomically
+		tx, txErr := s.db.Begin(ctx)
+		if txErr != nil {
+			return fmt.Errorf("beginning transaction: %w", txErr)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+
+		txq := sqlcgen.New(tx)
+		row, txErr := txq.CreateEvent(ctx, sqlcgen.CreateEventParams{
+			TripID:    int32(event.TripID),
+			EventDate: toPgDate(event.EventDate),
+			Title:     event.Title,
+			Category:  string(event.Category),
+			Location:  toPgText(event.Location),
+			Latitude:  toPgFloat8(event.Latitude),
+			Longitude: toPgFloat8(event.Longitude),
+			StartTime: toPgTimestamptz(event.StartTime),
+			EndTime:   toPgTimestamptz(event.EndTime),
+			Pinned:    toPgBool(event.Pinned),
+			Position:  position,
+			Notes:     toPgText(event.Notes),
+		})
+		if txErr != nil {
+			return fmt.Errorf("inserting event: %w", txErr)
+		}
+
+		// Capture flight details before overwriting *event, as eventRowToDomain returns nil Flight
+		flightDetails := event.Flight
+		*event = eventRowToDomain(&row)
+
+		fd, txErr := s.flight.Create(ctx, txq, event.ID, flightDetails)
+		if txErr != nil {
+			return txErr
+		}
+		event.Flight = fd
+
+		return tx.Commit(ctx)
+	}
+
+	// Non-transactional path for Activity, Food (no detail table)
 	row, err := s.queries.CreateEvent(ctx, sqlcgen.CreateEventParams{
 		TripID:    int32(event.TripID),
 		EventDate: toPgDate(event.EventDate),
@@ -67,6 +114,10 @@ func (s *EventStore) GetByID(ctx context.Context, id int) (*domain.Event, error)
 		return nil, err
 	}
 	event := eventRowToDomain(&row)
+	if event.Category == domain.CategoryFlight {
+		events := s.loadFlightDetails(ctx, []domain.Event{event})
+		event = events[0]
+	}
 	return &event, nil
 }
 
@@ -80,7 +131,7 @@ func (s *EventStore) ListByTrip(ctx context.Context, tripID int) ([]domain.Event
 	for i := range rows {
 		events[i] = eventRowToDomain(&rows[i])
 	}
-	return events, nil
+	return s.loadFlightDetails(ctx, events), nil
 }
 
 func (s *EventStore) ListByTripAndDate(ctx context.Context, tripID int, date time.Time) ([]domain.Event, error) {
@@ -96,17 +147,57 @@ func (s *EventStore) ListByTripAndDate(ctx context.Context, tripID int, date tim
 	for i := range rows {
 		events[i] = eventRowToDomain(&rows[i])
 	}
-	return events, nil
+	return s.loadFlightDetails(ctx, events), nil
 }
 
 func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Event) *domain.Event) (*domain.Event, error) {
-	event, err := s.GetByID(ctx, id)
+	event, err := s.GetByID(ctx, id) // now loads Flight details for flight events
 	if err != nil {
 		return nil, err
 	}
 
 	updated := updater(event)
 
+	if updated.Category == domain.CategoryFlight && updated.Flight != nil {
+		tx, txErr := s.db.Begin(ctx)
+		if txErr != nil {
+			return nil, fmt.Errorf("beginning transaction: %w", txErr)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+
+		txq := sqlcgen.New(tx)
+		row, txErr := txq.UpdateEvent(ctx, sqlcgen.UpdateEventParams{
+			ID:        int32(id),
+			Title:     updated.Title,
+			Category:  string(updated.Category),
+			Location:  toPgText(updated.Location),
+			Latitude:  toPgFloat8(updated.Latitude),
+			Longitude: toPgFloat8(updated.Longitude),
+			StartTime: toPgTimestamptz(updated.StartTime),
+			EndTime:   toPgTimestamptz(updated.EndTime),
+			Pinned:    toPgBool(updated.Pinned),
+			Position:  int32(updated.Position),
+			EventDate: toPgDate(updated.EventDate),
+			Notes:     toPgText(updated.Notes),
+		})
+		if txErr != nil {
+			return nil, fmt.Errorf("updating event: %w", txErr)
+		}
+		result := eventRowToDomain(&row)
+
+		fd, txErr := s.flight.Update(ctx, txq, id, updated.Flight)
+		if txErr != nil {
+			return nil, txErr
+		}
+		result.Flight = fd
+
+		if txErr = tx.Commit(ctx); txErr != nil {
+			return nil, fmt.Errorf("committing transaction: %w", txErr)
+		}
+		return &result, nil
+	}
+
+	// Non-transactional for Activity, Food
 	row, err := s.queries.UpdateEvent(ctx, sqlcgen.UpdateEventParams{
 		ID:        int32(id),
 		Title:     updated.Title,
@@ -124,7 +215,6 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 	if err != nil {
 		return nil, err
 	}
-
 	result := eventRowToDomain(&row)
 	return &result, nil
 }
@@ -165,6 +255,36 @@ func (s *EventStore) CountByTrip(ctx context.Context, tripID int) (int, error) {
 		return 0, err
 	}
 	return int(count), nil
+}
+
+// loadFlightDetails enriches flight events with their detail row.
+// No-op for non-flight events. Errors are logged but not fatal.
+func (s *EventStore) loadFlightDetails(ctx context.Context, events []domain.Event) []domain.Event {
+	var flightEventIDs []int
+	for i := range events {
+		if events[i].Category == domain.CategoryFlight {
+			flightEventIDs = append(flightEventIDs, events[i].ID)
+		}
+	}
+
+	if len(flightEventIDs) == 0 {
+		return events
+	}
+
+	detailsMap, err := s.flight.GetByEventIDs(ctx, s.queries, flightEventIDs)
+	if err != nil {
+		slog.WarnContext(ctx, "failed to load flight_details batch", "error", err)
+		return events
+	}
+
+	for i := range events {
+		if events[i].Category == domain.CategoryFlight {
+			if fd, ok := detailsMap[events[i].ID]; ok {
+				events[i].Flight = fd
+			}
+		}
+	}
+	return events
 }
 
 func eventRowToDomain(row *sqlcgen.Event) domain.Event {
