@@ -131,29 +131,19 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 	notes := r.FormValue("notes")
 	pinned := r.FormValue("pinned") == "on" || r.FormValue("pinned") == "true"
 
-	flightDetails := parseFlightDetails(r)
-
 	formData := &EventFormData{
-		TripID:            tripID,
-		Date:              dateStr,
-		Category:          category,
-		Title:             title,
-		Location:          location,
-		StartTime:         startTimeStr,
-		EndTime:           endTimeStr,
-		Notes:             notes,
-		Pinned:            pinned,
-		Airline:           flightDetails.Airline,
-		FlightNumber:      flightDetails.FlightNumber,
-		DepartureAirport:  flightDetails.DepartureAirport,
-		ArrivalAirport:    flightDetails.ArrivalAirport,
-		DepartureTerminal: flightDetails.DepartureTerminal,
-		ArrivalTerminal:   flightDetails.ArrivalTerminal,
-		DepartureGate:     flightDetails.DepartureGate,
-		ArrivalGate:       flightDetails.ArrivalGate,
-		BookingReference:  flightDetails.BookingReference,
-		CheckInTime:       r.FormValue("check_in_time"),
-		CheckOutTime:      r.FormValue("check_out_time"),
+		TripID:      tripID,
+		Date:        dateStr,
+		Category:    category,
+		Title:       title,
+		Location:    location,
+		StartTime:   startTimeStr,
+		EndTime:     endTimeStr,
+		Notes:       notes,
+		Pinned:      pinned,
+		CheckInTime: r.FormValue("check_in_time"),
+		CheckOutTime: r.FormValue("check_out_time"),
+		BookingReference: r.FormValue("booking_reference"),
 	}
 
 	// Handler pre-validates required fields for field-level errors
@@ -174,12 +164,23 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		formErrors["category"] = "Invalid event type"
 	}
 
-	// Validate flight fields
+	var serviceFlightDetails *domain.FlightDetails
 	if category == string(domain.CategoryFlight) {
-		if flightDetails.DepartureAirport == "" {
+		serviceFlightDetails = parseFlightDetails(r)
+		formData.Airline = serviceFlightDetails.Airline
+		formData.FlightNumber = serviceFlightDetails.FlightNumber
+		formData.DepartureAirport = serviceFlightDetails.DepartureAirport
+		formData.ArrivalAirport = serviceFlightDetails.ArrivalAirport
+		formData.DepartureTerminal = serviceFlightDetails.DepartureTerminal
+		formData.ArrivalTerminal = serviceFlightDetails.ArrivalTerminal
+		formData.DepartureGate = serviceFlightDetails.DepartureGate
+		formData.ArrivalGate = serviceFlightDetails.ArrivalGate
+		formData.BookingReference = serviceFlightDetails.BookingReference
+
+		if serviceFlightDetails.DepartureAirport == "" {
 			formErrors["departure_airport"] = "Required"
 		}
-		if flightDetails.ArrivalAirport == "" {
+		if serviceFlightDetails.ArrivalAirport == "" {
 			formErrors["arrival_airport"] = "Required"
 		}
 	}
@@ -206,14 +207,16 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var serviceFlightDetails *domain.FlightDetails
-	if category == string(domain.CategoryFlight) {
-		serviceFlightDetails = flightDetails
-	}
-
 	var lodgingDetails *domain.LodgingDetails
 	if category == string(domain.CategoryLodging) {
-		lodgingDetails = parseLodgingDetails(formData)
+		var parseErr error
+		lodgingDetails, parseErr = parseLodgingDetails(formData)
+		if parseErr != nil {
+			formErrors["general"] = "Invalid lodging time format"
+			formData.Errors = formErrors
+			renderEventFormError(w, r, formData)
+			return
+		}
 	}
 
 	input := &service.CreateEventInput{
@@ -331,28 +334,32 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	notes := r.FormValue("notes")
 	pinned := r.FormValue("pinned") == "on" || r.FormValue("pinned") == "true"
 
-	flightDetails := parseFlightDetails(r)
-
 	formData := EventFormData{
-		TripID:            tripID,
-		Date:              dateStr,
-		Title:             title,
-		Location:          location,
-		StartTime:         startTimeStr,
-		EndTime:           endTimeStr,
-		Notes:             notes,
-		Pinned:            pinned,
-		Airline:           flightDetails.Airline,
-		FlightNumber:      flightDetails.FlightNumber,
-		DepartureAirport:  flightDetails.DepartureAirport,
-		ArrivalAirport:    flightDetails.ArrivalAirport,
-		DepartureTerminal: flightDetails.DepartureTerminal,
-		ArrivalTerminal:   flightDetails.ArrivalTerminal,
-		DepartureGate:     flightDetails.DepartureGate,
-		ArrivalGate:       flightDetails.ArrivalGate,
-		BookingReference:  flightDetails.BookingReference,
-		CheckInTime:       r.FormValue("check_in_time"),
-		CheckOutTime:      r.FormValue("check_out_time"),
+		TripID:      tripID,
+		Date:        dateStr,
+		Title:       title,
+		Location:    location,
+		StartTime:   startTimeStr,
+		EndTime:     endTimeStr,
+		Notes:       notes,
+		Pinned:      pinned,
+		CheckInTime: r.FormValue("check_in_time"),
+		CheckOutTime: r.FormValue("check_out_time"),
+		BookingReference: r.FormValue("booking_reference"),
+	}
+
+	var flightDetails *domain.FlightDetails
+	if event.Category == domain.CategoryFlight {
+		flightDetails = parseFlightDetails(r)
+		formData.Airline = flightDetails.Airline
+		formData.FlightNumber = flightDetails.FlightNumber
+		formData.DepartureAirport = flightDetails.DepartureAirport
+		formData.ArrivalAirport = flightDetails.ArrivalAirport
+		formData.DepartureTerminal = flightDetails.DepartureTerminal
+		formData.ArrivalTerminal = flightDetails.ArrivalTerminal
+		formData.DepartureGate = flightDetails.DepartureGate
+		formData.ArrivalGate = flightDetails.ArrivalGate
+		formData.BookingReference = flightDetails.BookingReference
 	}
 
 	formErrors := make(map[string]string)
@@ -422,7 +429,13 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	var lodgingDetails *domain.LodgingDetails
 	if event.Category == domain.CategoryLodging {
-		lodgingDetails = parseLodgingDetails(&formData)
+		var parseErr error
+		lodgingDetails, parseErr = parseLodgingDetails(&formData)
+		if parseErr != nil {
+			formData.Errors = map[string]string{"general": "Invalid lodging time format"}
+			renderCardError(formData)
+			return
+		}
 	}
 
 	input := &service.UpdateEventInput{
@@ -581,23 +594,25 @@ func (h *EventHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
 }
 
-func parseLodgingDetails(formData *EventFormData) *domain.LodgingDetails {
+func parseLodgingDetails(formData *EventFormData) (*domain.LodgingDetails, error) {
 	ld := &domain.LodgingDetails{
 		BookingReference: formData.BookingReference,
 	}
 	if formData.CheckInTime != "" {
 		t, err := time.ParseInLocation("2006-01-02T15:04", formData.CheckInTime, time.UTC)
-		if err == nil {
-			ld.CheckInTime = &t
+		if err != nil {
+			return nil, fmt.Errorf("parsing check-in time: %w", err)
 		}
+		ld.CheckInTime = &t
 	}
 	if formData.CheckOutTime != "" {
 		t, err := time.ParseInLocation("2006-01-02T15:04", formData.CheckOutTime, time.UTC)
-		if err == nil {
-			ld.CheckOutTime = &t
+		if err != nil {
+			return nil, fmt.Errorf("parsing check-out time: %w", err)
 		}
+		ld.CheckOutTime = &t
 	}
-	return ld
+	return ld, nil
 }
 
 func parseFlightDetails(r *http.Request) *domain.FlightDetails {

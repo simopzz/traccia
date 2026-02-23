@@ -45,6 +45,8 @@ func (s *EventStore) Create(ctx context.Context, event *domain.Event) error {
 		position = int32(event.Position)
 	}
 
+	params := toCreateEventParams(event, position)
+
 	if event.Category == domain.CategoryFlight && event.Flight != nil {
 		// Transactional: insert base event + flight_details atomically
 		tx, txErr := s.db.Begin(ctx)
@@ -54,20 +56,7 @@ func (s *EventStore) Create(ctx context.Context, event *domain.Event) error {
 		defer func() { _ = tx.Rollback(ctx) }()
 
 		txq := sqlcgen.New(tx)
-		row, txErr := txq.CreateEvent(ctx, sqlcgen.CreateEventParams{
-			TripID:    int32(event.TripID),
-			EventDate: toPgDate(event.EventDate),
-			Title:     event.Title,
-			Category:  string(event.Category),
-			Location:  toPgText(event.Location),
-			Latitude:  toPgFloat8(event.Latitude),
-			Longitude: toPgFloat8(event.Longitude),
-			StartTime: toPgTimestamptz(event.StartTime),
-			EndTime:   toPgTimestamptz(event.EndTime),
-			Pinned:    toPgBool(event.Pinned),
-			Position:  position,
-			Notes:     toPgText(event.Notes),
-		})
+		row, txErr := txq.CreateEvent(ctx, params)
 		if txErr != nil {
 			return fmt.Errorf("inserting event: %w", txErr)
 		}
@@ -93,20 +82,7 @@ func (s *EventStore) Create(ctx context.Context, event *domain.Event) error {
 		defer func() { _ = tx.Rollback(ctx) }()
 
 		txq := sqlcgen.New(tx)
-		row, txErr := txq.CreateEvent(ctx, sqlcgen.CreateEventParams{
-			TripID:    int32(event.TripID),
-			EventDate: toPgDate(event.EventDate),
-			Title:     event.Title,
-			Category:  string(event.Category),
-			Location:  toPgText(event.Location),
-			Latitude:  toPgFloat8(event.Latitude),
-			Longitude: toPgFloat8(event.Longitude),
-			StartTime: toPgTimestamptz(event.StartTime),
-			EndTime:   toPgTimestamptz(event.EndTime),
-			Pinned:    toPgBool(event.Pinned),
-			Position:  position,
-			Notes:     toPgText(event.Notes),
-		})
+		row, txErr := txq.CreateEvent(ctx, params)
 		if txErr != nil {
 			return fmt.Errorf("inserting event: %w", txErr)
 		}
@@ -124,7 +100,16 @@ func (s *EventStore) Create(ctx context.Context, event *domain.Event) error {
 	}
 
 	// Non-transactional path for Activity, Food (no detail table)
-	row, err := s.queries.CreateEvent(ctx, sqlcgen.CreateEventParams{
+	row, err := s.queries.CreateEvent(ctx, params)
+	if err != nil {
+		return err
+	}
+	*event = eventRowToDomain(&row)
+	return nil
+}
+
+func toCreateEventParams(event *domain.Event, position int32) sqlcgen.CreateEventParams {
+	return sqlcgen.CreateEventParams{
 		TripID:    int32(event.TripID),
 		EventDate: toPgDate(event.EventDate),
 		Title:     event.Title,
@@ -137,12 +122,7 @@ func (s *EventStore) Create(ctx context.Context, event *domain.Event) error {
 		Pinned:    toPgBool(event.Pinned),
 		Position:  position,
 		Notes:     toPgText(event.Notes),
-	})
-	if err != nil {
-		return err
 	}
-	*event = eventRowToDomain(&row)
-	return nil
 }
 
 func (s *EventStore) GetByID(ctx context.Context, id int) (*domain.Event, error) {
@@ -203,6 +183,7 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 	}
 
 	updated := updater(event)
+	params := toUpdateEventParams(int32(id), updated)
 
 	if updated.Category == domain.CategoryFlight && updated.Flight != nil {
 		tx, txErr := s.db.Begin(ctx)
@@ -212,20 +193,7 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 		defer func() { _ = tx.Rollback(ctx) }()
 
 		txq := sqlcgen.New(tx)
-		row, txErr := txq.UpdateEvent(ctx, sqlcgen.UpdateEventParams{
-			ID:        int32(id),
-			Title:     updated.Title,
-			Category:  string(updated.Category),
-			Location:  toPgText(updated.Location),
-			Latitude:  toPgFloat8(updated.Latitude),
-			Longitude: toPgFloat8(updated.Longitude),
-			StartTime: toPgTimestamptz(updated.StartTime),
-			EndTime:   toPgTimestamptz(updated.EndTime),
-			Pinned:    toPgBool(updated.Pinned),
-			Position:  int32(updated.Position),
-			EventDate: toPgDate(updated.EventDate),
-			Notes:     toPgText(updated.Notes),
-		})
+		row, txErr := txq.UpdateEvent(ctx, params)
 		if txErr != nil {
 			return nil, fmt.Errorf("updating event: %w", txErr)
 		}
@@ -251,20 +219,7 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 		defer func() { _ = tx.Rollback(ctx) }()
 
 		txq := sqlcgen.New(tx)
-		row, txErr := txq.UpdateEvent(ctx, sqlcgen.UpdateEventParams{
-			ID:        int32(id),
-			Title:     updated.Title,
-			Category:  string(updated.Category),
-			Location:  toPgText(updated.Location),
-			Latitude:  toPgFloat8(updated.Latitude),
-			Longitude: toPgFloat8(updated.Longitude),
-			StartTime: toPgTimestamptz(updated.StartTime),
-			EndTime:   toPgTimestamptz(updated.EndTime),
-			Pinned:    toPgBool(updated.Pinned),
-			Position:  int32(updated.Position),
-			EventDate: toPgDate(updated.EventDate),
-			Notes:     toPgText(updated.Notes),
-		})
+		row, txErr := txq.UpdateEvent(ctx, params)
 		if txErr != nil {
 			return nil, fmt.Errorf("updating event: %w", txErr)
 		}
@@ -283,25 +238,29 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 	}
 
 	// Non-transactional for Activity, Food
-	row, err := s.queries.UpdateEvent(ctx, sqlcgen.UpdateEventParams{
-		ID:        int32(id),
-		Title:     updated.Title,
-		Category:  string(updated.Category),
-		Location:  toPgText(updated.Location),
-		Latitude:  toPgFloat8(updated.Latitude),
-		Longitude: toPgFloat8(updated.Longitude),
-		StartTime: toPgTimestamptz(updated.StartTime),
-		EndTime:   toPgTimestamptz(updated.EndTime),
-		Pinned:    toPgBool(updated.Pinned),
-		Position:  int32(updated.Position),
-		EventDate: toPgDate(updated.EventDate),
-		Notes:     toPgText(updated.Notes),
-	})
+	row, err := s.queries.UpdateEvent(ctx, params)
 	if err != nil {
 		return nil, err
 	}
 	result := eventRowToDomain(&row)
 	return &result, nil
+}
+
+func toUpdateEventParams(id int32, event *domain.Event) sqlcgen.UpdateEventParams {
+	return sqlcgen.UpdateEventParams{
+		ID:        id,
+		Title:     event.Title,
+		Category:  string(event.Category),
+		Location:  toPgText(event.Location),
+		Latitude:  toPgFloat8(event.Latitude),
+		Longitude: toPgFloat8(event.Longitude),
+		StartTime: toPgTimestamptz(event.StartTime),
+		EndTime:   toPgTimestamptz(event.EndTime),
+		Pinned:    toPgBool(event.Pinned),
+		Position:  int32(event.Position),
+		EventDate: toPgDate(event.EventDate),
+		Notes:     toPgText(event.Notes),
+	}
 }
 
 // Delete soft-deletes the event (sets deleted_at). Events are permanently removed

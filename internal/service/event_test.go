@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -984,5 +985,59 @@ func TestEventService_SuggestDefaults_FlightDuration(t *testing.T) {
 	wantDuration := 3 * time.Hour
 	if gotDuration != wantDuration {
 		t.Errorf("Flight duration = %v, want %v", gotDuration, wantDuration)
+	}
+}
+
+func TestEventService_Create_Lodging_Validation(t *testing.T) {
+	repo := newMockEventRepo()
+	svc := service.NewEventService(repo)
+
+	checkIn := time.Date(2026, 6, 1, 15, 0, 0, 0, time.UTC)
+	checkOut := time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC) // Before check-in
+
+	input := &service.CreateEventInput{
+		TripID:    1,
+		Title:     "Invalid Times",
+		Category:  domain.CategoryLodging,
+		StartTime: checkIn,
+		EndTime:   checkIn.Add(2 * time.Hour), // Valid base times
+		LodgingDetails: &domain.LodgingDetails{
+			CheckInTime:  &checkIn,
+			CheckOutTime: &checkOut,
+		},
+	}
+
+	_, err := svc.Create(context.Background(), input)
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("Create() error = %v, want ErrInvalidInput", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "check-out time must be after check-in time") {
+		t.Errorf("Create() error message mismatch: %v", err)
+	}
+}
+
+func TestEventService_Update_Lodging_Validation(t *testing.T) {
+	repo := newMockEventRepo()
+	repo.events[1] = &domain.Event{
+		ID:       1,
+		TripID:   1,
+		Category: domain.CategoryLodging,
+		Title:    "Hotel",
+	}
+	svc := service.NewEventService(repo)
+
+	checkIn := time.Date(2026, 6, 1, 15, 0, 0, 0, time.UTC)
+	checkOut := time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC) // Before check-in
+
+	input := &service.UpdateEventInput{
+		LodgingDetails: &domain.LodgingDetails{
+			CheckInTime:  &checkIn,
+			CheckOutTime: &checkOut,
+		},
+	}
+
+	_, err := svc.Update(context.Background(), 1, input)
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("Update() error = %v, want ErrInvalidInput", err)
 	}
 }

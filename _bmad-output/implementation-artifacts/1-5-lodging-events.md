@@ -834,12 +834,11 @@ claude-sonnet-4-6
 - Added `toOptionalPgTimestamptz`/`fromPgTimestamptz` helpers to `repository/helpers.go` for nullable TIMESTAMPTZ
 - Added `LodgingDetails` domain struct and `Lodging *LodgingDetails` field on `Event`
 - Created `LodgingDetailsStore` adapter with Create/GetByEventID/GetByEventIDs/Update methods
-- Updated `EventStore`: added `lodging` field, updated `NewEventStore` (breaking callers in main.go and seed/main.go), added lodging transactional paths to Create/Update, `loadLodgingDetails` batch loader, wired into GetByID/ListByTrip/ListByTripAndDate
-- Updated service layer: `LodgingDetails` in `CreateEventInput`/`UpdateEventInput`, populated in Create/Update closures
-- Updated handler: `CheckInTime`/`CheckOutTime` fields in `EventFormData`, `parseLodgingDetails()` helper, wired into Create/Update handlers
-- Templates: enabled lodging in `enabledCategories`, created `lodging_form.templ` (LodgingFormFields) and `lodging_card.templ` (LodgingCardContent), updated `event.templ` for view/edit modes and `EventNewPage`/`EventEditPage`, updated EventCreateForm
-- Updated seed to use `createLodgingEvent` (one per trip spanning full duration) instead of random lodging category
-- All 4 new lodging service tests pass; all existing tests pass; lint clean; build successful
+- Updated `EventStore`: added `lodging` field, updated `NewEventStore`, added lodging transactional paths, `loadLodgingDetails` batch loader, and refactored base event creation/update into helpers to eliminate duplication.
+- Updated service layer: added validation for CheckOut > CheckIn, updated inputs and closures.
+- Updated handler: improved form parsing (conditional per category), added error handling for lodging time parsing, and fixed UI color inconsistency (amber used consistently).
+- Added `internal/repository/lodging_details_store_test.go` and updated `internal/service/event_test.go` with new validation tests.
+- All tests pass; lint clean; build successful.
 
 ### File List
 
@@ -847,6 +846,7 @@ claude-sonnet-4-6
 - `internal/repository/sql/lodging_details.sql`
 - `internal/repository/sqlcgen/lodging_details.sql.go` (generated)
 - `internal/repository/lodging_details_store.go`
+- `internal/repository/lodging_details_store_test.go`
 - `internal/handler/lodging_card.templ`
 - `internal/handler/lodging_card_templ.go` (generated)
 - `internal/handler/lodging_form.templ`

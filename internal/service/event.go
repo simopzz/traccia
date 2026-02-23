@@ -92,6 +92,8 @@ func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*do
 		event.Lodging = input.LodgingDetails
 		if event.Lodging == nil {
 			event.Lodging = &domain.LodgingDetails{}
+		} else if event.Lodging.CheckInTime != nil && event.Lodging.CheckOutTime != nil && !event.Lodging.CheckOutTime.After(*event.Lodging.CheckInTime) {
+			return nil, fmt.Errorf("%w: check-out time must be after check-in time", domain.ErrInvalidInput)
 		}
 	}
 
@@ -157,6 +159,13 @@ func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInp
 			return nil, fmt.Errorf("%w: end time must be after start time", domain.ErrInvalidInput)
 		}
 	}
+
+	// When both lodging times are in the input, validate before starting the update.
+	if input.LodgingDetails != nil && input.LodgingDetails.CheckInTime != nil && input.LodgingDetails.CheckOutTime != nil &&
+		!input.LodgingDetails.CheckOutTime.After(*input.LodgingDetails.CheckInTime) {
+		return nil, fmt.Errorf("%w: lodging check-out time must be after check-in time", domain.ErrInvalidInput)
+	}
+
 	return s.repo.Update(ctx, id, func(event *domain.Event) *domain.Event {
 		if input.Title != nil {
 			event.Title = *input.Title
