@@ -1,6 +1,6 @@
 # Story 1.4: Flight Events
 
-Status: review
+Status: done
 
 ## Story
 
@@ -868,3 +868,4 @@ claude-sonnet-4-6
 - 2026-02-20: Story 1.4 implemented — Flight events with airline, flight number, airports, terminals, gates, booking reference. Transactional create/update via `FlightDetailsStore`. `FlightCardContent` renders expanded flight details. 5 new service tests added.
 - 2026-02-22: Code Review fixes — Implemented bulk loading for flight details (N+1 fix), added flight fields to full-page fallback forms via shared component, added handler tests, and improved server-side validation.
 - 2026-02-22: Code Review (part 2) — Fixed EventEditPage broken fallback (missing date hidden field + replaced datetime-local with time inputs), removed stringly-typed flightFieldValue in favour of flightDataFromDomain direct field access, enhanced TestEventHandler_Create_Flight to assert flight details reach the repo, added missing files to story File List, fixed rangeValCopy lint warnings.
+- 2026-02-22: Code Review (part 3) — Added error display for departure/arrival airport validation in FlightFormFields and inline edit (H1); replaced misleading editable category select in EventEditPage with read-only display (M1/M3); fixed mock Update to call updater; added TestEventHandler_Update_Flight with valid + two 422 cases (M2). Fixed {{fixed_count}}=4 issues.

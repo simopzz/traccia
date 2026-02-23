@@ -22,16 +22,22 @@ templ FlightFormFields(data EventFormData) {
 		</div>
 		<div class="grid grid-cols-2 gap-3 mb-3">
 			<div>
-				<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">From (airport)</label>
+				<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">From (airport) <span class="text-rose-500">*</span></label>
 				<input type="text" name="departure_airport" value={ data.DepartureAirport }
 					placeholder="e.g. LHR"
-					class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm font-mono focus:outline-none focus:border-brand"/>
+					class={ "w-full px-3 py-2 border-2 bg-white text-sm font-mono focus:outline-none focus:border-brand", fieldErrorClass(data.Errors, "departure_airport") }/>
+				if data.Errors != nil && data.Errors["departure_airport"] != "" {
+					<p class="mt-1 text-xs text-rose-600 font-medium">{ data.Errors["departure_airport"] }</p>
+				}
 			</div>
 			<div>
-				<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">To (airport)</label>
+				<label class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">To (airport) <span class="text-rose-500">*</span></label>
 				<input type="text" name="arrival_airport" value={ data.ArrivalAirport }
 					placeholder="e.g. CDG"
-					class="w-full px-3 py-2 border-2 border-slate-300 bg-white text-sm font-mono focus:outline-none focus:border-brand"/>
+					class={ "w-full px-3 py-2 border-2 bg-white text-sm font-mono focus:outline-none focus:border-brand", fieldErrorClass(data.Errors, "arrival_airport") }/>
+				if data.Errors != nil && data.Errors["arrival_airport"] != "" {
+					<p class="mt-1 text-xs text-rose-600 font-medium">{ data.Errors["arrival_airport"] }</p>
+				}
 			</div>
 		</div>
 		<div class="grid grid-cols-2 gap-3 mb-3">

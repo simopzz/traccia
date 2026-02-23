@@ -43,7 +43,11 @@ func (m *mockEventRepo) ListByTripAndDate(ctx context.Context, tripID int, date 
 	return []domain.Event{}, nil
 }
 func (m *mockEventRepo) Update(ctx context.Context, id int, updater func(*domain.Event) *domain.Event) (*domain.Event, error) {
-	return nil, nil
+	if m.event != nil && m.event.ID == id {
+		updated := updater(m.event)
+		return updated, nil
+	}
+	return nil, domain.ErrNotFound
 }
 func (m *mockEventRepo) Delete(ctx context.Context, id int) error {
 	return nil
@@ -100,6 +104,66 @@ func TestEventHandler_Delete_ScriptInjection(t *testing.T) {
 	// Check for HX-Trigger header (should NOT be present)
 	if w.Header().Get("HX-Trigger") != "" {
 		t.Errorf("Delete() unexpected HX-Trigger header: %s", w.Header().Get("HX-Trigger"))
+	}
+}
+
+func TestEventHandler_Update_Flight(t *testing.T) {
+	flightEvent := &domain.Event{
+		ID:        1,
+		TripID:    1,
+		Category:  domain.CategoryFlight,
+		Title:     "London to Paris",
+		StartTime: time.Date(2026, 6, 1, 8, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 30, 0, 0, time.UTC),
+		EventDate: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		Flight:    &domain.FlightDetails{Airline: "BA", DepartureAirport: "LHR", ArrivalAirport: "CDG"},
+	}
+
+	tests := []struct {
+		name       string
+		form       string
+		wantStatus int
+	}{
+		{
+			name:       "valid flight update returns 200",
+			form:       "title=London+to+Paris&date=2026-06-01&start_time=10%3A00&end_time=12%3A30&airline=BA&flight_number=123&departure_airport=LHR&arrival_airport=CDG",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "missing departure airport returns 422",
+			form:       "title=London+to+Paris&date=2026-06-01&start_time=10%3A00&end_time=12%3A30&airline=BA&departure_airport=&arrival_airport=CDG",
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:       "missing arrival airport returns 422",
+			form:       "title=London+to+Paris&date=2026-06-01&start_time=10%3A00&end_time=12%3A30&airline=BA&departure_airport=LHR&arrival_airport=",
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &mockEventRepo{event: flightEvent}
+			svc := service.NewEventService(repo)
+			h := NewEventHandler(svc)
+
+			body := strings.NewReader(tt.form)
+			r := httptest.NewRequest("POST", "/trips/1/events/1", body)
+			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			r.Header.Set("HX-Request", "true")
+
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("tripID", "1")
+			rctx.URLParams.Add("id", "1")
+			r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+
+			w := httptest.NewRecorder()
+			h.Update(w, r)
+
+			if w.Code != tt.wantStatus {
+				t.Errorf("Update() status = %d, want %d", w.Code, tt.wantStatus)
+			}
+		})
 	}
 }
 
