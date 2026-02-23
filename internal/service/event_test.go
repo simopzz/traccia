@@ -421,6 +421,14 @@ func TestEventService_SuggestDefaults(t *testing.T) {
 			wantDuration:  90 * time.Minute,
 		},
 		{
+			name:          "first event of day defaults to 9:00 AM + transit duration",
+			setup:         func(_ *mockEventRepo) {},
+			category:      domain.CategoryTransit,
+			wantStartHour: 9,
+			wantStartMin:  0,
+			wantDuration:  30 * time.Minute,
+		},
+		{
 			name: "subsequent event uses latest end time as start",
 			setup: func(r *mockEventRepo) {
 				r.events[1] = &domain.Event{

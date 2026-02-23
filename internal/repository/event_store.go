@@ -278,7 +278,7 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 		defer func() { _ = tx.Rollback(ctx) }()
 
 		txq := sqlcgen.New(tx)
-		row, txErr := txq.UpdateEvent(ctx, toUpdateEventParams(int32(id), updated))
+		row, txErr := txq.UpdateEvent(ctx, params)
 		if txErr != nil {
 			return nil, fmt.Errorf("updating event: %w", txErr)
 		}

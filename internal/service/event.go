@@ -277,6 +277,8 @@ func durationForCategory(category domain.EventCategory) time.Duration {
 		return DefaultFoodDuration
 	case domain.CategoryFlight:
 		return 3 * time.Hour
+	case domain.CategoryTransit:
+		return 30 * time.Minute
 	default:
 		return DefaultActivityDuration
 	}
