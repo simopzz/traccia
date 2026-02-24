@@ -1,6 +1,6 @@
 # Story 1.6: Transit Events
 
-Status: review
+Status: done
 
 ## Story
 
@@ -791,7 +791,15 @@ claude-sonnet-4-6[1m] (2026-02-23)
 - `event_form.templ` enables transit in TypeSelector
 - `cmd/app/main.go` and `cmd/seed/main.go` wired with `NewTransitDetailsStore`
 - Seed command adds explicit `createTransitEvent`; `CategoryTransit` removed from random pool
-- 4 new service tests pass; all existing tests pass; zero lint violations; build clean
+- 5 service tests pass (including Transit duration); all existing tests pass; zero lint violations; build clean
+- **AI-Review Fixes (Round 1)**:
+  - Added 30-minute default duration for transit category in `EventService`.
+  - Refactored `EventStore.Update` to use shared `params` variable in transit path.
+  - Added `SuggestDefaults` test case for Transit events.
+- **AI-Review Fixes (Round 2)**:
+  - Added `pgx.ErrNoRows → domain.ErrNotFound` mapping in `TransitDetailsStore.Update` (matches `GetByEventID` pattern).
+  - Created `transit_details_store_test.go` with `Test_transitRowToDomain` (matches `lodging_details_store_test.go` parity).
+  - Updated File List to document `lodging_details_store_test.go` and `static/css/app.css`.
 
 ### File List
 
@@ -799,6 +807,7 @@ claude-sonnet-4-6[1m] (2026-02-23)
 - `internal/repository/sql/transit_details.sql`
 - `internal/repository/sqlcgen/transit_details.sql.go` (generated)
 - `internal/repository/transit_details_store.go`
+- `internal/repository/transit_details_store_test.go`
 - `internal/handler/transit_card.templ`
 - `internal/handler/transit_card_templ.go` (generated)
 - `internal/handler/transit_form.templ`
@@ -816,3 +825,5 @@ claude-sonnet-4-6[1m] (2026-02-23)
 - `cmd/app/main.go`
 - `cmd/seed/main.go`
 - `internal/service/event_test.go`
+- `internal/repository/lodging_details_store_test.go` (lodgingRowToDomain test added for parity)
+- `static/css/app.css` (Tailwind rebuild — new transit/purple classes)

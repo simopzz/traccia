@@ -75,6 +75,9 @@ func (s *TransitDetailsStore) Update(ctx context.Context, q *sqlcgen.Queries, ev
 		TransportMode: toPgText(td.TransportMode),
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
 		return nil, fmt.Errorf("updating transit_details for event %d: %w", eventID, err)
 	}
 	result := transitRowToDomain(&row)
