@@ -21,14 +21,16 @@ type EventStore struct {
 	queries *sqlcgen.Queries
 	flight  *FlightDetailsStore
 	lodging *LodgingDetailsStore
+	transit *TransitDetailsStore
 }
 
-func NewEventStore(db *pgxpool.Pool, flightStore *FlightDetailsStore, lodgingStore *LodgingDetailsStore) *EventStore {
+func NewEventStore(db *pgxpool.Pool, flightStore *FlightDetailsStore, lodgingStore *LodgingDetailsStore, transitStore *TransitDetailsStore) *EventStore {
 	return &EventStore{
 		db:      db,
 		queries: sqlcgen.New(db),
 		flight:  flightStore,
 		lodging: lodgingStore,
+		transit: transitStore,
 	}
 }
 
@@ -99,6 +101,31 @@ func (s *EventStore) Create(ctx context.Context, event *domain.Event) error {
 		return tx.Commit(ctx)
 	}
 
+	if event.Category == domain.CategoryTransit && event.Transit != nil {
+		tx, txErr := s.db.Begin(ctx)
+		if txErr != nil {
+			return fmt.Errorf("beginning transaction: %w", txErr)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+
+		txq := sqlcgen.New(tx)
+		row, txErr := txq.CreateEvent(ctx, params)
+		if txErr != nil {
+			return fmt.Errorf("inserting event: %w", txErr)
+		}
+
+		transitDetails := event.Transit
+		*event = eventRowToDomain(&row)
+
+		td, txErr := s.transit.Create(ctx, txq, event.ID, transitDetails)
+		if txErr != nil {
+			return txErr
+		}
+		event.Transit = td
+
+		return tx.Commit(ctx)
+	}
+
 	// Non-transactional path for Activity, Food (no detail table)
 	row, err := s.queries.CreateEvent(ctx, params)
 	if err != nil {
@@ -142,6 +169,10 @@ func (s *EventStore) GetByID(ctx context.Context, id int) (*domain.Event, error)
 		events := s.loadLodgingDetails(ctx, []domain.Event{event})
 		event = events[0]
 	}
+	if event.Category == domain.CategoryTransit {
+		events := s.loadTransitDetails(ctx, []domain.Event{event})
+		event = events[0]
+	}
 	return &event, nil
 }
 
@@ -156,7 +187,8 @@ func (s *EventStore) ListByTrip(ctx context.Context, tripID int) ([]domain.Event
 		events[i] = eventRowToDomain(&rows[i])
 	}
 	events = s.loadFlightDetails(ctx, events)
-	return s.loadLodgingDetails(ctx, events), nil
+	events = s.loadLodgingDetails(ctx, events)
+	return s.loadTransitDetails(ctx, events), nil
 }
 
 func (s *EventStore) ListByTripAndDate(ctx context.Context, tripID int, date time.Time) ([]domain.Event, error) {
@@ -173,7 +205,8 @@ func (s *EventStore) ListByTripAndDate(ctx context.Context, tripID int, date tim
 		events[i] = eventRowToDomain(&rows[i])
 	}
 	events = s.loadFlightDetails(ctx, events)
-	return s.loadLodgingDetails(ctx, events), nil
+	events = s.loadLodgingDetails(ctx, events)
+	return s.loadTransitDetails(ctx, events), nil
 }
 
 func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Event) *domain.Event) (*domain.Event, error) {
@@ -230,6 +263,32 @@ func (s *EventStore) Update(ctx context.Context, id int, updater func(*domain.Ev
 			return nil, txErr
 		}
 		result.Lodging = ld
+
+		if txErr = tx.Commit(ctx); txErr != nil {
+			return nil, fmt.Errorf("committing transaction: %w", txErr)
+		}
+		return &result, nil
+	}
+
+	if updated.Category == domain.CategoryTransit && updated.Transit != nil {
+		tx, txErr := s.db.Begin(ctx)
+		if txErr != nil {
+			return nil, fmt.Errorf("beginning transaction: %w", txErr)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+
+		txq := sqlcgen.New(tx)
+		row, txErr := txq.UpdateEvent(ctx, params)
+		if txErr != nil {
+			return nil, fmt.Errorf("updating event: %w", txErr)
+		}
+		result := eventRowToDomain(&row)
+
+		td, txErr := s.transit.Update(ctx, txq, id, updated.Transit)
+		if txErr != nil {
+			return nil, txErr
+		}
+		result.Transit = td
 
 		if txErr = tx.Commit(ctx); txErr != nil {
 			return nil, fmt.Errorf("committing transaction: %w", txErr)
@@ -326,6 +385,31 @@ func (s *EventStore) loadFlightDetails(ctx context.Context, events []domain.Even
 			if fd, ok := detailsMap[events[i].ID]; ok {
 				events[i].Flight = fd
 			}
+		}
+	}
+	return events
+}
+
+// loadTransitDetails enriches transit events with their detail row.
+// No-op for non-transit events. Errors are logged but not fatal.
+func (s *EventStore) loadTransitDetails(ctx context.Context, events []domain.Event) []domain.Event {
+	var transitIDs []int
+	for i := range events {
+		if events[i].Category == domain.CategoryTransit {
+			transitIDs = append(transitIDs, events[i].ID)
+		}
+	}
+	if len(transitIDs) == 0 {
+		return events
+	}
+	details, err := s.transit.GetByEventIDs(ctx, s.queries, transitIDs)
+	if err != nil {
+		slog.WarnContext(ctx, "failed to load transit_details", "error", err)
+		return events
+	}
+	for i := range events {
+		if events[i].Category == domain.CategoryTransit {
+			events[i].Transit = details[events[i].ID]
 		}
 	}
 	return events

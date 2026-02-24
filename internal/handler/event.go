@@ -43,6 +43,9 @@ type EventFormData struct {
 	DepartureGate     string
 	CheckInTime       string // "2006-01-02T15:04" format, empty = not provided
 	CheckOutTime      string
+	Origin            string
+	Destination       string
+	TransportMode     string
 	TripID            int
 	Pinned            bool
 }
@@ -132,18 +135,21 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 	pinned := r.FormValue("pinned") == "on" || r.FormValue("pinned") == "true"
 
 	formData := &EventFormData{
-		TripID:      tripID,
-		Date:        dateStr,
-		Category:    category,
-		Title:       title,
-		Location:    location,
-		StartTime:   startTimeStr,
-		EndTime:     endTimeStr,
-		Notes:       notes,
-		Pinned:      pinned,
-		CheckInTime: r.FormValue("check_in_time"),
-		CheckOutTime: r.FormValue("check_out_time"),
+		TripID:           tripID,
+		Date:             dateStr,
+		Category:         category,
+		Title:            title,
+		Location:         location,
+		StartTime:        startTimeStr,
+		EndTime:          endTimeStr,
+		Notes:            notes,
+		Pinned:           pinned,
+		CheckInTime:      r.FormValue("check_in_time"),
+		CheckOutTime:     r.FormValue("check_out_time"),
 		BookingReference: r.FormValue("booking_reference"),
+		Origin:           r.FormValue("origin"),
+		Destination:      r.FormValue("destination"),
+		TransportMode:    r.FormValue("transport_mode"),
 	}
 
 	// Handler pre-validates required fields for field-level errors
@@ -219,6 +225,11 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var transitDetails *domain.TransitDetails
+	if category == string(domain.CategoryTransit) {
+		transitDetails = parseTransitDetails(formData)
+	}
+
 	input := &service.CreateEventInput{
 		TripID:         tripID,
 		Title:          title,
@@ -230,6 +241,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Pinned:         pinned,
 		FlightDetails:  serviceFlightDetails,
 		LodgingDetails: lodgingDetails,
+		TransitDetails: transitDetails,
 	}
 
 	event, err := h.eventService.Create(r.Context(), input)
@@ -335,17 +347,20 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	pinned := r.FormValue("pinned") == "on" || r.FormValue("pinned") == "true"
 
 	formData := EventFormData{
-		TripID:      tripID,
-		Date:        dateStr,
-		Title:       title,
-		Location:    location,
-		StartTime:   startTimeStr,
-		EndTime:     endTimeStr,
-		Notes:       notes,
-		Pinned:      pinned,
-		CheckInTime: r.FormValue("check_in_time"),
-		CheckOutTime: r.FormValue("check_out_time"),
+		TripID:           tripID,
+		Date:             dateStr,
+		Title:            title,
+		Location:         location,
+		StartTime:        startTimeStr,
+		EndTime:          endTimeStr,
+		Notes:            notes,
+		Pinned:           pinned,
+		CheckInTime:      r.FormValue("check_in_time"),
+		CheckOutTime:     r.FormValue("check_out_time"),
 		BookingReference: r.FormValue("booking_reference"),
+		Origin:           r.FormValue("origin"),
+		Destination:      r.FormValue("destination"),
+		TransportMode:    r.FormValue("transport_mode"),
 	}
 
 	var flightDetails *domain.FlightDetails
@@ -438,6 +453,11 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var transitDetails *domain.TransitDetails
+	if event.Category == domain.CategoryTransit {
+		transitDetails = parseTransitDetails(&formData)
+	}
+
 	input := &service.UpdateEventInput{
 		Title:          &title,
 		Category:       &category,
@@ -448,6 +468,7 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Pinned:         &pinned,
 		FlightDetails:  serviceFlightDetails,
 		LodgingDetails: lodgingDetails,
+		TransitDetails: transitDetails,
 	}
 
 	updatedEvent, err := h.eventService.Update(r.Context(), id, input)
@@ -613,6 +634,14 @@ func parseLodgingDetails(formData *EventFormData) (*domain.LodgingDetails, error
 		ld.CheckOutTime = &t
 	}
 	return ld, nil
+}
+
+func parseTransitDetails(formData *EventFormData) *domain.TransitDetails {
+	return &domain.TransitDetails{
+		Origin:        formData.Origin,
+		Destination:   formData.Destination,
+		TransportMode: formData.TransportMode,
+	}
 }
 
 func parseFlightDetails(r *http.Request) *domain.FlightDetails {

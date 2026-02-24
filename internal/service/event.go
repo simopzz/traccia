@@ -35,6 +35,7 @@ type CreateEventInput struct {
 	Longitude      *float64
 	FlightDetails  *domain.FlightDetails
 	LodgingDetails *domain.LodgingDetails
+	TransitDetails *domain.TransitDetails
 	Title          string
 	Category       domain.EventCategory
 	Location       string
@@ -97,6 +98,13 @@ func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*do
 		}
 	}
 
+	if input.Category == domain.CategoryTransit {
+		event.Transit = input.TransitDetails
+		if event.Transit == nil {
+			event.Transit = &domain.TransitDetails{}
+		}
+	}
+
 	if err := s.repo.Create(ctx, event); err != nil {
 		return nil, err
 	}
@@ -133,6 +141,7 @@ type UpdateEventInput struct {
 	Notes          *string
 	FlightDetails  *domain.FlightDetails  // nil means "don't change flight details"
 	LodgingDetails *domain.LodgingDetails // nil means "don't change lodging details"
+	TransitDetails *domain.TransitDetails // nil means "don't change transit details"
 }
 
 func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInput) (*domain.Event, error) {
@@ -204,6 +213,9 @@ func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInp
 		if input.LodgingDetails != nil {
 			event.Lodging = input.LodgingDetails
 		}
+		if input.TransitDetails != nil {
+			event.Transit = input.TransitDetails
+		}
 		return event
 	})
 }
@@ -265,6 +277,8 @@ func durationForCategory(category domain.EventCategory) time.Duration {
 		return DefaultFoodDuration
 	case domain.CategoryFlight:
 		return 3 * time.Hour
+	case domain.CategoryTransit:
+		return 30 * time.Minute
 	default:
 		return DefaultActivityDuration
 	}

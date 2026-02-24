@@ -1,0 +1,32 @@
+package handler
+
+import "github.com/simopzz/traccia/internal/domain"
+
+// TransitCardContent renders transit-specific detail in an expanded event card.
+// Called from EventTimelineItem when event.Category == domain.CategoryTransit.
+templ TransitCardContent(td *domain.TransitDetails) {
+	if td == nil {
+		return
+	}
+	<div class="mt-3 pt-3 border-t border-slate-100 space-y-2">
+		if td.Origin != "" || td.Destination != "" {
+			<div class="flex items-center gap-2 text-sm">
+				if td.Origin != "" {
+					<span class="text-xs text-slate-500 font-mono">{ td.Origin }</span>
+				}
+				if td.Origin != "" && td.Destination != "" {
+					<span class="text-xs text-slate-400">→</span>
+				}
+				if td.Destination != "" {
+					<span class="text-xs text-slate-500 font-mono">{ td.Destination }</span>
+				}
+			</div>
+		}
+		if td.TransportMode != "" {
+			<div class="text-xs text-slate-500">
+				<span class="font-medium text-slate-600">Mode:</span>
+				<span class="ml-1">{ td.TransportMode }</span>
+			</div>
+		}
+	</div>
+}

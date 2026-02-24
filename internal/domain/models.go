@@ -59,6 +59,14 @@ type FlightDetails struct {
 	ID                int
 }
 
+type TransitDetails struct {
+	Origin        string
+	Destination   string
+	TransportMode string
+	ID            int
+	EventID       int
+}
+
 type Event struct {
 	EventDate time.Time
 	StartTime time.Time
@@ -69,6 +77,7 @@ type Event struct {
 	Latitude  *float64
 	Flight    *FlightDetails
 	Lodging   *LodgingDetails
+	Transit   *TransitDetails
 	Category  EventCategory
 	Title     string
 	Location  string
