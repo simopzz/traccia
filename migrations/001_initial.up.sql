@@ -23,6 +23,7 @@ CREATE TABLE events (
     pinned BOOLEAN DEFAULT FALSE,
     position INTEGER NOT NULL DEFAULT 0,
     notes TEXT DEFAULT '',
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

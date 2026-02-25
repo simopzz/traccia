@@ -9,7 +9,7 @@ import (
 var categoryBgColors = map[domain.EventCategory]string{
 	domain.CategoryActivity: "bg-teal-100 text-teal-700",
 	domain.CategoryFood:     "bg-amber-100 text-amber-700",
-	domain.CategoryLodging:  "bg-amber-100 text-amber-700",
+	domain.CategoryLodging:  "bg-rose-100 text-rose-700",
 	domain.CategoryTransit:  "bg-purple-100 text-purple-700",
 	domain.CategoryFlight:   "bg-sky-100 text-sky-700",
 }
@@ -158,12 +158,12 @@ templ eventCardInner(event domain.Event, props *EventCardProps) {
 				</div>
 			}
 			<form
-				hx-post={ fmt.Sprintf("/trips/%d/events/%d", event.TripID, event.ID) }
+				hx-put={ fmt.Sprintf("/trips/%d/events/%d", event.TripID, event.ID) }
 				hx-target={ fmt.Sprintf("#event-%d", event.ID) }
 				hx-swap="outerHTML"
 				hx-disabled-elt="find button"
+				hx-validate="true"
 			>
-				<input type="hidden" name="_method" value="PUT"/>
 				if props != nil {
 					<input type="hidden" name="date" value={ props.FormValues.Date }/>
 				} else {
@@ -693,11 +693,11 @@ templ EventEditPage(event *domain.Event) {
 		<h1 class="text-2xl font-bold mb-6">Edit Event</h1>
 		<div class="bg-white border-2 border-slate-900 p-6 shadow-[3px_3px_0px_0px_#0f172a]">
 			<form
-				method="POST"
-				action={ templ.SafeURL(fmt.Sprintf("/trips/%d/events/%d", event.TripID, event.ID)) }
+				hx-put={ fmt.Sprintf("/trips/%d/events/%d", event.TripID, event.ID) }
+				hx-target="body"
+				hx-validate="true"
 				x-data={ fmt.Sprintf(`{ category: '%s' }`, event.Category) }
 			>
-				<input type="hidden" name="_method" value="PUT"/>
 				<input type="hidden" name="date" value={ event.StartTime.Format("2006-01-02") }/>
 				<div class="mb-4">
 					<label for="title" class="block text-sm font-medium text-slate-700 mb-1">Event Title</label>

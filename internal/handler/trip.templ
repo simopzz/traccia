@@ -168,8 +168,7 @@ templ TripEditPage(trip *domain.Trip, eventCount int, formErrors *FormErrors) {
 					{ formErrors.General }
 				</div>
 			}
-			<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) }>
-				<input type="hidden" name="_method" value="PUT"/>
+			<form hx-put={ fmt.Sprintf("/trips/%d", trip.ID) } hx-target="body" hx-validate="true">
 				<div class="mb-4">
 					<label for="name" class="block text-sm font-medium text-slate-700 mb-1">Trip Name</label>
 					<input
@@ -263,8 +262,7 @@ templ TripEditPage(trip *domain.Trip, eventCount int, formErrors *FormErrors) {
 							>
 								Cancel
 							</button>
-							<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/trips/%d", trip.ID)) }>
-								<input type="hidden" name="_method" value="DELETE"/>
+							<form hx-delete={ fmt.Sprintf("/trips/%d", trip.ID) }>
 								<button
 									type="submit"
 									class="px-4 py-2 bg-rose-600 text-white rounded-md font-medium hover:bg-rose-700"
@@ -422,8 +420,7 @@ templ TimelineDay(tripID int, day TimelineDayData) {
 				class="ml-auto text-xs text-slate-400 hover:text-brand transition-colors"
 				hx-get={ fmt.Sprintf("/trips/%d/events/new?date=%s", tripID, day.Date.Format("2006-01-02")) }
 				hx-target="#sheet-form"
-				hx-swap="innerHTML"
-				onclick="window.dispatchEvent(new CustomEvent('open-sheet'))"
+				hx-on:click="window.dispatchEvent(new CustomEvent('open-sheet'))"
 			>
 				+ Add Event
 			</button>
@@ -449,8 +446,7 @@ templ EmptyDayPrompt(tripID int, day TimelineDayData) {
 		class="w-full border-2 border-dashed border-slate-300 py-5 text-center text-sm text-slate-400 hover:border-brand hover:text-brand hover:bg-brand/5 transition-all cursor-pointer"
 		hx-get={ fmt.Sprintf("/trips/%d/events/new?date=%s", tripID, day.Date.Format("2006-01-02")) }
 		hx-target="#sheet-form"
-		hx-swap="innerHTML"
-		onclick="window.dispatchEvent(new CustomEvent('open-sheet'))"
+		hx-on:click="window.dispatchEvent(new CustomEvent('open-sheet'))"
 	>
 		{ fmt.Sprintf("+ Add event to Day %d", day.DayNumber) }
 	</button>

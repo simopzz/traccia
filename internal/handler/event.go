@@ -405,6 +405,11 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// the edit page (non-HTMX fallback) so the browser always gets a usable response.
 	renderCardError := func(data EventFormData) {
 		if r.Header.Get("HX-Request") == "true" {
+			if strings.Contains(r.Header.Get("HX-Current-URL"), "/edit") {
+				w.Header().Set("HX-Redirect", fmt.Sprintf("/trips/%s/events/%d/edit", tripIDStr, id))
+				w.WriteHeader(http.StatusOK)
+				return
+			}
 			w.Header().Set("HX-Retarget", fmt.Sprintf("#event-%d", id))
 			w.Header().Set("HX-Reswap", "outerHTML")
 			w.WriteHeader(http.StatusUnprocessableEntity)
@@ -611,7 +616,7 @@ func (h *EventHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	eventDateStr := event.EventDate.Format("2006-01-02")
 	w.Header().Set("HX-Retarget", fmt.Sprintf("#day-%s", eventDateStr))
 	w.Header().Set("HX-Reswap", "outerHTML")
-	w.Header().Set("HX-Trigger", `{"hideUndoToast": true}`)
+	w.Header().Set("HX-Trigger", `{"hideundotoast": true}`)
 	templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
 }
 

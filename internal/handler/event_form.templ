@@ -93,7 +93,7 @@ templ EventCreateForm(data *EventFormData) {
 		<form
 			hx-post={ fmt.Sprintf("/trips/%d/events", data.TripID) }
 			hx-target="#sheet-form"
-			hx-swap="innerHTML"
+			hx-validate="true"
 			x-data={ fmt.Sprintf(`{ selected: '%s' }`, data.Category) }
 		>
 			@TypeSelector(data.Category)
@@ -220,7 +220,7 @@ templ EventCreateForm(data *EventFormData) {
 				</button>
 				<button
 					type="button"
-					onclick="window.dispatchEvent(new CustomEvent('close-sheet'))"
+					hx-on:click="window.dispatchEvent(new CustomEvent('close-sheet'))"
 					class="px-5 py-2.5 text-slate-600 font-bold text-sm uppercase tracking-wide border-2 border-slate-300 hover:border-slate-900 hover:bg-slate-50 transition-all"
 				>
 					Cancel

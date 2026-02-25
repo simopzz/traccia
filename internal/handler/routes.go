@@ -13,7 +13,6 @@ func NewRouter(tripHandler *TripHandler, eventHandler *EventHandler) http.Handle
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
-	r.Use(methodOverride)
 
 	// Static files
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -43,15 +42,3 @@ func NewRouter(tripHandler *TripHandler, eventHandler *EventHandler) http.Handle
 	return r
 }
 
-// methodOverride allows forms to use PUT/DELETE via _method field
-func methodOverride(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			method := r.FormValue("_method")
-			if method == "PUT" || method == "DELETE" {
-				r.Method = method
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
-}

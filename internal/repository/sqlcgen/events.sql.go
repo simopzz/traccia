@@ -66,7 +66,7 @@ func (q *Queries) CountEventsByTripGroupedByDate(ctx context.Context, arg CountE
 const createEvent = `-- name: CreateEvent :one
 INSERT INTO events (trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at
+RETURNING id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, deleted_at, created_at, updated_at
 `
 
 type CreateEventParams struct {
@@ -114,15 +114,15 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		&i.Pinned,
 		&i.Position,
 		&i.Notes,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const getEventByID = `-- name: GetEventByID :one
-SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at FROM events WHERE id = $1 AND deleted_at IS NULL
+SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, deleted_at, created_at, updated_at FROM events WHERE id = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) GetEventByID(ctx context.Context, id int32) (Event, error) {
@@ -142,15 +142,15 @@ func (q *Queries) GetEventByID(ctx context.Context, id int32) (Event, error) {
 		&i.Pinned,
 		&i.Position,
 		&i.Notes,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const getLastEventByTrip = `-- name: GetLastEventByTrip :one
-SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at FROM events
+SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, deleted_at, created_at, updated_at FROM events
 WHERE trip_id = $1 AND deleted_at IS NULL
 ORDER BY event_date DESC, end_time DESC
 LIMIT 1
@@ -173,9 +173,9 @@ func (q *Queries) GetLastEventByTrip(ctx context.Context, tripID int32) (Event, 
 		&i.Pinned,
 		&i.Position,
 		&i.Notes,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -199,7 +199,7 @@ func (q *Queries) GetMaxPositionByTripAndDate(ctx context.Context, arg GetMaxPos
 }
 
 const listEventsByTrip = `-- name: ListEventsByTrip :many
-SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at FROM events
+SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, deleted_at, created_at, updated_at FROM events
 WHERE trip_id = $1 AND deleted_at IS NULL
 ORDER BY event_date ASC, position ASC
 `
@@ -227,9 +227,9 @@ func (q *Queries) ListEventsByTrip(ctx context.Context, tripID int32) ([]Event, 
 			&i.Pinned,
 			&i.Position,
 			&i.Notes,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -242,7 +242,7 @@ func (q *Queries) ListEventsByTrip(ctx context.Context, tripID int32) ([]Event, 
 }
 
 const listEventsByTripAndDate = `-- name: ListEventsByTripAndDate :many
-SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at FROM events
+SELECT id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, deleted_at, created_at, updated_at FROM events
 WHERE trip_id = $1 AND event_date = $2 AND deleted_at IS NULL
 ORDER BY position ASC
 `
@@ -275,9 +275,9 @@ func (q *Queries) ListEventsByTripAndDate(ctx context.Context, arg ListEventsByT
 			&i.Pinned,
 			&i.Position,
 			&i.Notes,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -291,7 +291,7 @@ func (q *Queries) ListEventsByTripAndDate(ctx context.Context, arg ListEventsByT
 
 const restoreEvent = `-- name: RestoreEvent :one
 UPDATE events SET deleted_at = NULL WHERE id = $1
-RETURNING id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at
+RETURNING id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, deleted_at, created_at, updated_at
 `
 
 func (q *Queries) RestoreEvent(ctx context.Context, id int32) (Event, error) {
@@ -311,9 +311,9 @@ func (q *Queries) RestoreEvent(ctx context.Context, id int32) (Event, error) {
 		&i.Pinned,
 		&i.Position,
 		&i.Notes,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -333,7 +333,7 @@ SET title = $2, category = $3, location = $4, latitude = $5, longitude = $6,
     start_time = $7, end_time = $8, pinned = $9, position = $10,
     event_date = $11, notes = $12, updated_at = NOW()
 WHERE id = $1
-RETURNING id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, created_at, updated_at, deleted_at
+RETURNING id, trip_id, event_date, title, category, location, latitude, longitude, start_time, end_time, pinned, position, notes, deleted_at, created_at, updated_at
 `
 
 type UpdateEventParams struct {
@@ -381,9 +381,9 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event
 		&i.Pinned,
 		&i.Position,
 		&i.Notes,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DeletedAt,
 	)
 	return i, err
 }

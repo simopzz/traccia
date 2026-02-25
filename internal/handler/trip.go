@@ -184,6 +184,11 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/trips/"+strconv.Itoa(id))
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	http.Redirect(w, r, "/trips/"+strconv.Itoa(id), http.StatusSeeOther)
 }
 
@@ -204,6 +209,11 @@ func (h *TripHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 

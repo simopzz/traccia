@@ -22,9 +22,9 @@ type Event struct {
 	Pinned    pgtype.Bool
 	Position  int32
 	Notes     pgtype.Text
+	DeletedAt pgtype.Timestamptz
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
-	DeletedAt pgtype.Timestamptz
 }
 
 type FlightDetail struct {
