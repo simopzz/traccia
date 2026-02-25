@@ -41,4 +41,3 @@ func NewRouter(tripHandler *TripHandler, eventHandler *EventHandler) http.Handle
 
 	return r
 }
-
