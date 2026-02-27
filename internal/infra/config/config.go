@@ -2,15 +2,15 @@ package config
 
 import (
 	"log/slog"
-	"os"
 
+	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	ServerAddress string
-	DatabaseURL   string
-	Environment   string
+	ServerAddress string `env:"SERVER_ADDRESS" envDefault:":3000"`
+	DatabaseURL   string `env:"DATABASE_URL" envDefault:"postgres://traccia:traccia@localhost:5432/traccia?sslmode=disable"`
+	Environment   string `env:"ENVIRONMENT" envDefault:"development"`
 }
 
 func Load() *Config {
@@ -18,11 +18,13 @@ func Load() *Config {
 		slog.Debug(".env file not found, using system environment variables")
 	}
 
-	return &Config{
-		ServerAddress: getEnv("SERVER_ADDRESS", ":3000"),
-		DatabaseURL:   getEnv("DATABASE_URL", "postgres://traccia:traccia@localhost:5432/traccia?sslmode=disable"),
-		Environment:   getEnv("ENVIRONMENT", "development"),
+	var cfg Config
+	if err := env.Parse(&cfg); err != nil {
+		slog.Error("Failed to parse environment variables", "error", err)
+		panic(err)
 	}
+
+	return &cfg
 }
 
 func (c *Config) IsDevelopment() bool {
@@ -31,11 +33,4 @@ func (c *Config) IsDevelopment() bool {
 
 func (c *Config) IsProduction() bool {
 	return c.Environment == "production"
-}
-
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
 }
