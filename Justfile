@@ -44,6 +44,10 @@ fmt:
 lint: fmt
     golangci-lint run
 
+# Find unreachable code
+deadcode:
+    @deadcode ./...
+
 # Run sqlc and templ code generation
 generate:
     sqlc generate
@@ -63,6 +67,7 @@ tools: tailwind-install
     @command -v goimports >/dev/null || go install golang.org/x/tools/cmd/goimports@latest
     @command -v betteralign >/dev/null || go install github.com/dkorunic/betteralign/cmd/betteralign@latest
     @command -v migrate >/dev/null || go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+    @command -v deadcode >/dev/null || go install golang.org/x/tools/cmd/deadcode@latest
     go run github.com/playwright-community/playwright-go/cmd/playwright@latest install --with-deps
 
 # Download Tailwind CSS v4 standalone CLI

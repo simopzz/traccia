@@ -6,8 +6,23 @@ import (
 	"log/slog"
 	"time"
 
+	z "github.com/Oudwins/zog"
+
 	"github.com/simopzz/traccia/internal/domain"
 )
+
+var createEventSchema = z.Struct(z.Shape{
+	"Title":     z.String().Required(z.Message("title is required")),
+	"TripID":    z.Int().Required(z.Message("trip_id is required")).GT(0, z.Message("trip_id is required")),
+	"StartTime": z.Time().Required(z.Message("start time is required")),
+	"EndTime":   z.Time().Required(z.Message("end time is required")),
+})
+
+var updateEventSchema = z.Struct(z.Shape{
+	"Title":     z.Ptr(z.String().Required(z.Message("title cannot be empty"))),
+	"StartTime": z.Ptr(z.Time().Required(z.Message("start time cannot be zero"))),
+	"EndTime":   z.Ptr(z.Time().Required(z.Message("end time cannot be zero"))),
+})
 
 type EventStore interface {
 	domain.EventRepository
@@ -45,17 +60,8 @@ type CreateEventInput struct {
 }
 
 func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*domain.Event, error) {
-	if input.Title == "" {
-		return nil, fmt.Errorf("%w: title is required", domain.ErrInvalidInput)
-	}
-	if input.TripID <= 0 {
-		return nil, fmt.Errorf("%w: trip_id is required", domain.ErrInvalidInput)
-	}
-	if input.StartTime.IsZero() {
-		return nil, fmt.Errorf("%w: start time is required", domain.ErrInvalidInput)
-	}
-	if input.EndTime.IsZero() {
-		return nil, fmt.Errorf("%w: end time is required", domain.ErrInvalidInput)
+	if errs := createEventSchema.Validate(input); len(errs) > 0 {
+		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidInput, errs[0].Message)
 	}
 	if input.EndTime.Before(input.StartTime) {
 		return nil, fmt.Errorf("%w: end time must be on or after start time", domain.ErrInvalidInput)
@@ -64,7 +70,7 @@ func (s *EventService) Create(ctx context.Context, input *CreateEventInput) (*do
 	if input.Category == "" {
 		input.Category = domain.CategoryActivity
 	}
-	if !domain.IsValidEventCategory(input.Category) {
+	if !input.Category.IsValid() {
 		return nil, fmt.Errorf("%w: invalid category %q", domain.ErrInvalidInput, input.Category)
 	}
 
@@ -145,6 +151,10 @@ type UpdateEventInput struct {
 }
 
 func (s *EventService) Update(ctx context.Context, id int, input *UpdateEventInput) (*domain.Event, error) {
+	if errs := updateEventSchema.Validate(input); len(errs) > 0 {
+		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidInput, errs[0].Message)
+	}
+
 	// When both times are in the input, validate immediately (no DB fetch needed).
 	if input.StartTime != nil && input.EndTime != nil && !input.EndTime.After(*input.StartTime) {
 		return nil, fmt.Errorf("%w: end time must be after start time", domain.ErrInvalidInput)
