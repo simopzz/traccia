@@ -12,12 +12,10 @@ import (
 
 // mockTripRepo is a test double implementing domain.TripRepository.
 type mockTripRepo struct {
-	eventsOutsideRangeErr error
-	affectedDaysErr       error
-	trips                 map[int]*domain.Trip
-	affectedDays          []domain.DateEventCount
-	nextID                int
-	eventsOutsideRange    int
+	affectedDaysErr error
+	trips           map[int]*domain.Trip
+	affectedDays    []domain.DateEventCount
+	nextID          int
 }
 
 func newMockTripRepo() *mockTripRepo {
@@ -70,13 +68,6 @@ func (m *mockTripRepo) Delete(_ context.Context, id int) error {
 	}
 	delete(m.trips, id)
 	return nil
-}
-
-func (m *mockTripRepo) CountEventsByTripAndDateRange(_ context.Context, _ int, _, _ time.Time) (int, error) {
-	if m.eventsOutsideRangeErr != nil {
-		return 0, m.eventsOutsideRangeErr
-	}
-	return m.eventsOutsideRange, nil
 }
 
 func (m *mockTripRepo) CountEventsByTripGroupedByDate(_ context.Context, _ int, _, _ time.Time) ([]domain.DateEventCount, error) {

@@ -166,7 +166,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if dateStr == "" {
 		formErrors["date"] = "Date is required"
 	}
-	if category != "" && !domain.IsValidEventCategory(domain.EventCategory(category)) {
+	if category != "" && !domain.EventCategory(category).IsValid() {
 		formErrors["category"] = "Invalid event type"
 	}
 

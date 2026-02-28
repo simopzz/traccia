@@ -106,18 +106,6 @@ func (s *TripStore) Delete(ctx context.Context, id int) error {
 	return nil
 }
 
-func (s *TripStore) CountEventsByTripAndDateRange(ctx context.Context, tripID int, newStart, newEnd time.Time) (int, error) {
-	count, err := s.queries.CountEventsByTripAndDateRange(ctx, sqlcgen.CountEventsByTripAndDateRangeParams{
-		TripID:      int32(tripID),
-		EventDate:   toPgDate(newStart),
-		EventDate_2: toPgDate(newEnd),
-	})
-	if err != nil {
-		return 0, err
-	}
-	return int(count), nil
-}
-
 func (s *TripStore) CountEventsByTripGroupedByDate(ctx context.Context, tripID int, newStart, newEnd time.Time) ([]domain.DateEventCount, error) {
 	rows, err := s.queries.CountEventsByTripGroupedByDate(ctx, sqlcgen.CountEventsByTripGroupedByDateParams{
 		TripID:      int32(tripID),
