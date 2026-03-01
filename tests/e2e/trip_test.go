@@ -5,6 +5,7 @@ package e2e
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"testing"
 	"time"
 
@@ -89,14 +90,33 @@ func TestTripCreation(t *testing.T) {
 		t.Fatalf("could not click submit: %v", err)
 	}
 
-	// 6. Verify trip is in list
-	locator := page.GetByText(tripName)
+	// 6. Verify no validation errors were returned
+	errorLocator := page.Locator(".bg-rose-50")
+	isVisible, err := errorLocator.IsVisible()
+	if err != nil {
+		t.Fatalf("could not check error visibility: %v", err)
+	}
+	if isVisible {
+		errorText, _ := errorLocator.InnerText()
+		t.Fatalf("expected no validation errors, but got: %s", errorText)
+	}
+
+	// 7. Verify we are redirected to trip detail page
+	err = page.WaitForURL(regexp.MustCompile(`.*/trips/\d+`))
+	if err != nil {
+		t.Fatalf("did not redirect to trip detail page: %v", err)
+	}
+
+	// 8. Verify trip name is displayed on the detail page
+	locator := page.GetByRole("heading", playwright.PageGetByRoleOptions{
+		Name: tripName,
+	})
 	count, err := locator.Count()
 	if err != nil {
 		t.Fatalf("could not count locators: %v", err)
 	}
 	if count == 0 {
-		t.Errorf("trip %q not found in list after creation", tripName)
+		t.Errorf("trip %q not found on detail page after creation", tripName)
 	}
 }
 

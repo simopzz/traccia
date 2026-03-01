@@ -99,6 +99,15 @@ migrate-up:
 migrate-down:
     migrate -path migrations -database "postgres://traccia:traccia@localhost:5432/traccia?sslmode=disable" down
 
+# Reset the database to a clean state and seed it
+db-reset:
+    @echo "y" | migrate -path migrations -database "postgres://traccia:traccia@localhost:5432/traccia?sslmode=disable" drop
+    just migrate-up
+
+# Seed the database with sample data
+seed:
+    go run ./cmd/seed/main.go
+
 # Remove build artifacts
 clean:
     rm -rf bin/ tmp/

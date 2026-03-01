@@ -6,20 +6,26 @@ import (
 	"time"
 
 	z "github.com/Oudwins/zog"
+	"github.com/Oudwins/zog/conf"
 
 	"github.com/simopzz/traccia/internal/domain"
 )
 
-var createTripSchema = z.Struct(z.Shape{
-	"StartDate": z.Time().Required(z.Message("start date is required")),
-	"EndDate":   z.Time().Required(z.Message("end date is required")),
+var dateCoercer = conf.TimeCoercerFactory(func(val string) (time.Time, error) {
+	// HTMX uses YYYY-MM-DD for date inputs
+	return time.Parse("2006-01-02", val)
+})
+
+var CreateTripSchema = z.Struct(z.Shape{
+	"StartDate": z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("start date is required")),
+	"EndDate":   z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("end date is required")),
 	"Name":      z.String().Required(z.Message("name is required")),
 })
 
-var updateTripSchema = z.Struct(z.Shape{
+var UpdateTripSchema = z.Struct(z.Shape{
 	"Name":      z.Ptr(z.String().Required(z.Message("name is required"))),
-	"StartDate": z.Ptr(z.Time().Required(z.Message("start date is required"))),
-	"EndDate":   z.Ptr(z.Time().Required(z.Message("end date is required"))),
+	"StartDate": z.Ptr(z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("start date is required"))),
+	"EndDate":   z.Ptr(z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("end date is required"))),
 })
 
 type TripService struct {
@@ -38,7 +44,7 @@ type CreateTripInput struct {
 }
 
 func (s *TripService) Create(ctx context.Context, input *CreateTripInput) (*domain.Trip, error) {
-	if errs := createTripSchema.Validate(input); len(errs) > 0 {
+	if errs := CreateTripSchema.Validate(input); len(errs) > 0 {
 		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidInput, errs[0].Message)
 	}
 	if input.EndDate.Before(input.StartDate) {
@@ -75,7 +81,7 @@ type UpdateTripInput struct {
 }
 
 func (s *TripService) Update(ctx context.Context, id int, input UpdateTripInput) (*domain.Trip, error) {
-	if errs := updateTripSchema.Validate(&input); len(errs) > 0 {
+	if errs := UpdateTripSchema.Validate(&input); len(errs) > 0 {
 		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidInput, errs[0].Message)
 	}
 	if input.StartDate != nil && input.EndDate != nil && input.EndDate.Before(*input.StartDate) {
