@@ -9,6 +9,8 @@ import (
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 
+	zh "github.com/Oudwins/zog/zhttp"
+
 	"github.com/simopzz/traccia/internal/domain"
 	"github.com/simopzz/traccia/internal/service"
 )
@@ -46,11 +48,11 @@ func (h *TripHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	input := &service.CreateTripInput{
-		Name:        r.FormValue("name"),
-		Destination: r.FormValue("destination"),
-		StartDate:   parseDate(r.FormValue("start_date")),
-		EndDate:     parseDate(r.FormValue("end_date")),
+	input := &service.CreateTripInput{}
+	errs := service.CreateTripSchema.Parse(zh.Request(r), input)
+	if errs != nil {
+		templ.Handler(TripNewPage(input, &FormErrors{General: errs[0].Message})).ServeHTTP(w, r)
+		return
 	}
 
 	trip, err := h.tripService.Create(r.Context(), input)
@@ -143,16 +145,34 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name := r.FormValue("name")
-	destination := r.FormValue("destination")
-	startDate := parseDate(r.FormValue("start_date"))
-	endDate := parseDate(r.FormValue("end_date"))
-
-	input := service.UpdateTripInput{
-		Name:        &name,
-		Destination: &destination,
-		StartDate:   &startDate,
-		EndDate:     &endDate,
+	var input service.UpdateTripInput
+	errs := service.UpdateTripSchema.Parse(zh.Request(r), &input)
+	if errs != nil {
+		trip, getErr := h.tripService.GetByID(r.Context(), id)
+		if getErr != nil {
+			http.Error(w, "Failed to load trip", http.StatusInternalServerError)
+			return
+		}
+		// Overlay user's form input so the form preserves what they typed
+		if input.Name != nil {
+			trip.Name = *input.Name
+		}
+		if input.Destination != nil {
+			trip.Destination = *input.Destination
+		}
+		if input.StartDate != nil {
+			trip.StartDate = *input.StartDate
+		}
+		if input.EndDate != nil {
+			trip.EndDate = *input.EndDate
+		}
+		eventCount, countErr := h.eventService.CountByTrip(r.Context(), id)
+		if countErr != nil {
+			http.Error(w, "Failed to count events", http.StatusInternalServerError)
+			return
+		}
+		templ.Handler(TripEditPage(trip, eventCount, &FormErrors{General: errs[0].Message})).ServeHTTP(w, r)
+		return
 	}
 
 	_, err = h.tripService.Update(r.Context(), id, input)
@@ -168,10 +188,18 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// Overlay user's form input so the form preserves what they typed
-			trip.Name = name
-			trip.Destination = destination
-			trip.StartDate = startDate
-			trip.EndDate = endDate
+			if input.Name != nil {
+				trip.Name = *input.Name
+			}
+			if input.Destination != nil {
+				trip.Destination = *input.Destination
+			}
+			if input.StartDate != nil {
+				trip.StartDate = *input.StartDate
+			}
+			if input.EndDate != nil {
+				trip.EndDate = *input.EndDate
+			}
 			eventCount, countErr := h.eventService.CountByTrip(r.Context(), id)
 			if countErr != nil {
 				http.Error(w, "Failed to count events", http.StatusInternalServerError)

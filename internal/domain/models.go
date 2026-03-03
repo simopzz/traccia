@@ -22,14 +22,9 @@ const (
 	CategoryFlight   EventCategory = "flight"
 )
 
-// ValidEventCategories returns the set of allowed event categories.
-func ValidEventCategories() []EventCategory {
-	return []EventCategory{CategoryActivity, CategoryFood, CategoryLodging, CategoryTransit, CategoryFlight}
-}
-
-// IsValidEventCategory checks if a category string is valid.
-func IsValidEventCategory(c EventCategory) bool {
-	for _, valid := range ValidEventCategories() {
+func (c EventCategory) IsValid() bool {
+	validCategories := []EventCategory{CategoryActivity, CategoryFood, CategoryLodging, CategoryTransit, CategoryFlight}
+	for _, valid := range validCategories {
 		if c == valid {
 			return true
 		}

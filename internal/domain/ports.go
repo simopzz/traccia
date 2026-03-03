@@ -17,7 +17,6 @@ type TripRepository interface {
 	List(ctx context.Context, userID *string) ([]Trip, error)
 	Update(ctx context.Context, id int, updater func(*Trip) *Trip) (*Trip, error)
 	Delete(ctx context.Context, id int) error
-	CountEventsByTripAndDateRange(ctx context.Context, tripID int, newStart, newEnd time.Time) (int, error)
 	CountEventsByTripGroupedByDate(ctx context.Context, tripID int, newStart, newEnd time.Time) ([]DateEventCount, error)
 }
 

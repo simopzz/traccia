@@ -5,8 +5,28 @@ import (
 	"fmt"
 	"time"
 
+	z "github.com/Oudwins/zog"
+	"github.com/Oudwins/zog/conf"
+
 	"github.com/simopzz/traccia/internal/domain"
 )
+
+var dateCoercer = conf.TimeCoercerFactory(func(val string) (time.Time, error) {
+	// HTMX uses YYYY-MM-DD for date inputs
+	return time.Parse("2006-01-02", val)
+})
+
+var CreateTripSchema = z.Struct(z.Shape{
+	"StartDate": z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("start date is required")),
+	"EndDate":   z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("end date is required")),
+	"Name":      z.String().Required(z.Message("name is required")),
+})
+
+var UpdateTripSchema = z.Struct(z.Shape{
+	"Name":      z.Ptr(z.String().Required(z.Message("name is required"))),
+	"StartDate": z.Ptr(z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("start date is required"))),
+	"EndDate":   z.Ptr(z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("end date is required"))),
+})
 
 type TripService struct {
 	repo domain.TripRepository
@@ -24,14 +44,8 @@ type CreateTripInput struct {
 }
 
 func (s *TripService) Create(ctx context.Context, input *CreateTripInput) (*domain.Trip, error) {
-	if input.Name == "" {
-		return nil, fmt.Errorf("%w: name is required", domain.ErrInvalidInput)
-	}
-	if input.StartDate.IsZero() {
-		return nil, fmt.Errorf("%w: start date is required", domain.ErrInvalidInput)
-	}
-	if input.EndDate.IsZero() {
-		return nil, fmt.Errorf("%w: end date is required", domain.ErrInvalidInput)
+	if errs := CreateTripSchema.Validate(input); len(errs) > 0 {
+		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidInput, errs[0].Message)
 	}
 	if input.EndDate.Before(input.StartDate) {
 		return nil, fmt.Errorf("%w: end date must be on or after start date", domain.ErrInvalidInput)
@@ -67,14 +81,8 @@ type UpdateTripInput struct {
 }
 
 func (s *TripService) Update(ctx context.Context, id int, input UpdateTripInput) (*domain.Trip, error) {
-	if input.Name != nil && *input.Name == "" {
-		return nil, fmt.Errorf("%w: name is required", domain.ErrInvalidInput)
-	}
-	if input.StartDate != nil && input.StartDate.IsZero() {
-		return nil, fmt.Errorf("%w: start date is required", domain.ErrInvalidInput)
-	}
-	if input.EndDate != nil && input.EndDate.IsZero() {
-		return nil, fmt.Errorf("%w: end date is required", domain.ErrInvalidInput)
+	if errs := UpdateTripSchema.Validate(&input); len(errs) > 0 {
+		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidInput, errs[0].Message)
 	}
 	if input.StartDate != nil && input.EndDate != nil && input.EndDate.Before(*input.StartDate) {
 		return nil, fmt.Errorf("%w: end date must be on or after start date", domain.ErrInvalidInput)

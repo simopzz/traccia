@@ -19,9 +19,3 @@ RETURNING *;
 
 -- name: DeleteTrip :execrows
 DELETE FROM trips WHERE id = $1;
-
--- name: CountEventsByTripAndDateRange :one
-SELECT COUNT(*)::int AS event_count
-FROM events
-WHERE trip_id = $1
-  AND (event_date < $2 OR event_date > $3);

@@ -82,7 +82,7 @@ templ TripNewPage(input *service.CreateTripInput, formErrors *FormErrors) {
 					<input
 						type="text"
 						id="name"
-						name="name"
+						name="Name"
 						if input != nil {
 							value={ input.Name }
 						}
@@ -95,7 +95,7 @@ templ TripNewPage(input *service.CreateTripInput, formErrors *FormErrors) {
 					<input
 						type="text"
 						id="destination"
-						name="destination"
+						name="Destination"
 						if input != nil {
 							value={ input.Destination }
 						}
@@ -109,7 +109,7 @@ templ TripNewPage(input *service.CreateTripInput, formErrors *FormErrors) {
 						<input
 							type="date"
 							id="start_date"
-							name="start_date"
+							name="StartDate"
 							if input != nil {
 								value={ formatDateInput(input.StartDate) }
 							}
@@ -122,7 +122,7 @@ templ TripNewPage(input *service.CreateTripInput, formErrors *FormErrors) {
 						<input
 							type="date"
 							id="end_date"
-							name="end_date"
+							name="EndDate"
 							if input != nil {
 								value={ formatDateInput(input.EndDate) }
 							}
@@ -174,7 +174,7 @@ templ TripEditPage(trip *domain.Trip, eventCount int, formErrors *FormErrors) {
 					<input
 						type="text"
 						id="name"
-						name="name"
+						name="Name"
 						value={ trip.Name }
 						required
 						class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
@@ -185,7 +185,7 @@ templ TripEditPage(trip *domain.Trip, eventCount int, formErrors *FormErrors) {
 					<input
 						type="text"
 						id="destination"
-						name="destination"
+						name="Destination"
 						value={ trip.Destination }
 						placeholder="Optional"
 						class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
@@ -197,7 +197,7 @@ templ TripEditPage(trip *domain.Trip, eventCount int, formErrors *FormErrors) {
 						<input
 							type="date"
 							id="start_date"
-							name="start_date"
+							name="StartDate"
 							value={ formatDateInput(trip.StartDate) }
 							required
 							class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
@@ -208,7 +208,7 @@ templ TripEditPage(trip *domain.Trip, eventCount int, formErrors *FormErrors) {
 						<input
 							type="date"
 							id="end_date"
-							name="end_date"
+							name="EndDate"
 							value={ formatDateInput(trip.EndDate) }
 							required
 							class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"

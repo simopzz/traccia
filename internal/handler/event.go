@@ -154,21 +154,6 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Handler pre-validates required fields for field-level errors
 	formErrors := make(map[string]string)
-	if title == "" {
-		formErrors["title"] = "Title is required"
-	}
-	if startTimeStr == "" {
-		formErrors["start_time"] = "Start time is required"
-	}
-	if endTimeStr == "" {
-		formErrors["end_time"] = "End time is required"
-	}
-	if dateStr == "" {
-		formErrors["date"] = "Date is required"
-	}
-	if category != "" && !domain.IsValidEventCategory(domain.EventCategory(category)) {
-		formErrors["category"] = "Invalid event type"
-	}
 
 	var serviceFlightDetails *domain.FlightDetails
 	if category == string(domain.CategoryFlight) {
@@ -191,10 +176,21 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if len(formErrors) > 0 {
-		formData.Errors = formErrors
-		renderEventFormError(w, r, formData)
-		return
+	var lodgingDetails *domain.LodgingDetails
+	if category == string(domain.CategoryLodging) {
+		var parseErr error
+		lodgingDetails, parseErr = parseLodgingDetails(formData)
+		if parseErr != nil {
+			formErrors["general"] = "Invalid lodging time format"
+			formData.Errors = formErrors
+			renderEventFormError(w, r, formData)
+			return
+		}
+	}
+
+	var transitDetails *domain.TransitDetails
+	if category == string(domain.CategoryTransit) {
+		transitDetails = parseTransitDetails(formData)
 	}
 
 	startTime, err := parseDateAndTime(dateStr, startTimeStr)
@@ -213,23 +209,6 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var lodgingDetails *domain.LodgingDetails
-	if category == string(domain.CategoryLodging) {
-		var parseErr error
-		lodgingDetails, parseErr = parseLodgingDetails(formData)
-		if parseErr != nil {
-			formErrors["general"] = "Invalid lodging time format"
-			formData.Errors = formErrors
-			renderEventFormError(w, r, formData)
-			return
-		}
-	}
-
-	var transitDetails *domain.TransitDetails
-	if category == string(domain.CategoryTransit) {
-		transitDetails = parseTransitDetails(formData)
-	}
-
 	input := &service.CreateEventInput{
 		TripID:         tripID,
 		Title:          title,
@@ -242,6 +221,27 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		FlightDetails:  serviceFlightDetails,
 		LodgingDetails: lodgingDetails,
 		TransitDetails: transitDetails,
+	}
+
+	if errs := service.CreateEventSchema.Validate(input); len(errs) > 0 {
+		for _, e := range errs {
+			path := strings.Join(e.Path, ".")
+			switch path {
+			case "Title":
+				formErrors["title"] = e.Message
+			case "StartTime":
+				formErrors["start_time"] = e.Message
+			case "EndTime":
+				formErrors["end_time"] = e.Message
+			case "TripID":
+				formErrors["general"] = e.Message
+			default:
+				formErrors["general"] = e.Message
+			}
+		}
+		formData.Errors = formErrors
+		renderEventFormError(w, r, formData)
+		return
 	}
 
 	event, err := h.eventService.Create(r.Context(), input)
@@ -377,30 +377,6 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		formData.BookingReference = flightDetails.BookingReference
 	}
 
-	formErrors := make(map[string]string)
-	if title == "" {
-		formErrors["title"] = "Title is required"
-	}
-	if startTimeStr == "" {
-		formErrors["start_time"] = "Start time is required"
-	}
-	if endTimeStr == "" {
-		formErrors["end_time"] = "End time is required"
-	}
-	if dateStr == "" {
-		formErrors["date"] = "Date is required"
-	}
-
-	// Validate flight fields
-	if event.Category == domain.CategoryFlight {
-		if flightDetails.DepartureAirport == "" {
-			formErrors["departure_airport"] = "Required"
-		}
-		if flightDetails.ArrivalAirport == "" {
-			formErrors["arrival_airport"] = "Required"
-		}
-	}
-
 	// renderCardError sends a 422 with the inline edit card (HTMX) or redirects to
 	// the edit page (non-HTMX fallback) so the browser always gets a usable response.
 	renderCardError := func(data EventFormData) {
@@ -419,10 +395,39 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	formErrors := make(map[string]string)
+
+	var serviceFlightDetails *domain.FlightDetails
+	if event.Category == domain.CategoryFlight {
+		serviceFlightDetails = flightDetails
+		if serviceFlightDetails.DepartureAirport == "" {
+			formErrors["departure_airport"] = "Required"
+		}
+		if serviceFlightDetails.ArrivalAirport == "" {
+			formErrors["arrival_airport"] = "Required"
+		}
+	}
+
 	if len(formErrors) > 0 {
 		formData.Errors = formErrors
 		renderCardError(formData)
 		return
+	}
+
+	var lodgingDetails *domain.LodgingDetails
+	if event.Category == domain.CategoryLodging {
+		var parseErr error
+		lodgingDetails, parseErr = parseLodgingDetails(&formData)
+		if parseErr != nil {
+			formData.Errors = map[string]string{"general": "Invalid lodging time format"}
+			renderCardError(formData)
+			return
+		}
+	}
+
+	var transitDetails *domain.TransitDetails
+	if event.Category == domain.CategoryTransit {
+		transitDetails = parseTransitDetails(&formData)
 	}
 
 	startTime, err := parseDateAndTime(dateStr, startTimeStr)
@@ -442,27 +447,6 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	category := event.Category // preserve existing category
-	var serviceFlightDetails *domain.FlightDetails
-	if event.Category == domain.CategoryFlight {
-		serviceFlightDetails = flightDetails
-	}
-
-	var lodgingDetails *domain.LodgingDetails
-	if event.Category == domain.CategoryLodging {
-		var parseErr error
-		lodgingDetails, parseErr = parseLodgingDetails(&formData)
-		if parseErr != nil {
-			formData.Errors = map[string]string{"general": "Invalid lodging time format"}
-			renderCardError(formData)
-			return
-		}
-	}
-
-	var transitDetails *domain.TransitDetails
-	if event.Category == domain.CategoryTransit {
-		transitDetails = parseTransitDetails(&formData)
-	}
-
 	input := &service.UpdateEventInput{
 		Title:          &title,
 		Category:       &category,
@@ -474,6 +458,25 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		FlightDetails:  serviceFlightDetails,
 		LodgingDetails: lodgingDetails,
 		TransitDetails: transitDetails,
+	}
+
+	if errs := service.UpdateEventSchema.Validate(input); len(errs) > 0 {
+		for _, e := range errs {
+			path := strings.Join(e.Path, ".")
+			switch path {
+			case "Title":
+				formErrors["title"] = e.Message
+			case "StartTime":
+				formErrors["start_time"] = e.Message
+			case "EndTime":
+				formErrors["end_time"] = e.Message
+			default:
+				formErrors["general"] = e.Message
+			}
+		}
+		formData.Errors = formErrors
+		renderCardError(formData)
+		return
 	}
 
 	updatedEvent, err := h.eventService.Update(r.Context(), id, input)
