@@ -30,7 +30,7 @@ run: build
 test:
     go test -v -race ./...
 
-# Run end-to-end tests (requires server running)
+# Run end-to-end tests
 test-e2e:
     go test -v -tags e2e ./tests/e2e/...
 
