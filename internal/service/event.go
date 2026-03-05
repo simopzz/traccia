@@ -7,28 +7,22 @@ import (
 	"time"
 
 	z "github.com/Oudwins/zog"
-	"github.com/Oudwins/zog/conf"
 
 	"github.com/simopzz/traccia/internal/domain"
 )
 
-var eventDateCoercer = conf.TimeCoercerFactory(func(val string) (time.Time, error) {
-	// HTMX datetime-local inputs use "2006-01-02T15:04"
-	return time.Parse("2006-01-02T15:04", val)
-})
-
 var CreateEventSchema = z.Struct(z.Shape{
 	"Title":     z.String().Required(z.Message("title is required")),
 	"TripID":    z.Int().Required(z.Message("trip_id is required")).GT(0, z.Message("trip_id is required")),
-	"StartTime": z.Time(z.WithCoercer(eventDateCoercer)).Required(z.Message("start time is required")),
-	"EndTime":   z.Time(z.WithCoercer(eventDateCoercer)).Required(z.Message("end time is required")),
+	"StartTime": z.Time().Required(z.Message("start time is required")),
+	"EndTime":   z.Time().Required(z.Message("end time is required")),
 	"Category":  z.StringLike[domain.EventCategory]().Optional(),
 })
 
 var UpdateEventSchema = z.Struct(z.Shape{
 	"Title":     z.Ptr(z.String().Required(z.Message("title cannot be empty"))),
-	"StartTime": z.Ptr(z.Time(z.WithCoercer(eventDateCoercer)).Required(z.Message("start time cannot be zero"))),
-	"EndTime":   z.Ptr(z.Time(z.WithCoercer(eventDateCoercer)).Required(z.Message("end time cannot be zero"))),
+	"StartTime": z.Ptr(z.Time().Required(z.Message("start time cannot be zero"))),
+	"EndTime":   z.Ptr(z.Time().Required(z.Message("end time cannot be zero"))),
 	"Category":  z.Ptr(z.StringLike[domain.EventCategory]()),
 })
 

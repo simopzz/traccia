@@ -4,16 +4,63 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/a-h/templ"
-	"github.com/go-chi/chi/v5"
+
+	z "github.com/Oudwins/zog"
+	"github.com/Oudwins/zog/conf"
 
 	"github.com/simopzz/traccia/internal/domain"
 	"github.com/simopzz/traccia/internal/service"
 )
+
+var htmxDateTimeCoercer = conf.TimeCoercerFactory(func(val string) (time.Time, error) {
+	// HTMX datetime-local inputs use "2006-01-02T15:04"
+	return time.Parse("2006-01-02T15:04", val)
+})
+
+var eventDiscriminatorSchema = z.Struct(z.Shape{
+	"Category": z.String().Required(),
+})
+
+var baseEventShape = z.Shape{
+	"Date":      z.String().Required(z.Message("date is required")),
+	"Title":     z.String().Required(z.Message("title is required")),
+	"Location":  z.String().Optional(),
+	"StartTime": z.String().Required(z.Message("start time is required")),
+	"EndTime":   z.String().Required(z.Message("end time is required")),
+	"Notes":     z.String().Optional(),
+	"Pinned":    z.Bool().Optional(),
+	"Category":  z.String().Optional(),
+}
+
+var activityEventSchema = z.Struct(baseEventShape)
+
+var flightEventSchema = z.Struct(baseEventShape).Extend(z.Shape{
+	"Airline":           z.String().Optional(),
+	"FlightNumber":      z.String().Optional(),
+	"DepartureAirport":  z.String().Required(z.Message("departure airport is required")),
+	"ArrivalAirport":    z.String().Required(z.Message("arrival airport is required")),
+	"DepartureTerminal": z.String().Optional(),
+	"ArrivalTerminal":   z.String().Optional(),
+	"DepartureGate":     z.String().Optional(),
+	"ArrivalGate":       z.String().Optional(),
+	"BookingReference":  z.String().Optional(),
+})
+
+var lodgingEventSchema = z.Struct(baseEventShape).Extend(z.Shape{
+	"CheckInTime":      z.Time(z.WithCoercer(htmxDateTimeCoercer)).Optional(),
+	"CheckOutTime":     z.Time(z.WithCoercer(htmxDateTimeCoercer)).Optional(),
+	"BookingReference": z.String().Optional(),
+})
+
+var transitEventSchema = z.Struct(baseEventShape).Extend(z.Shape{
+	"Origin":        z.String().Optional(),
+	"Destination":   z.String().Optional(),
+	"TransportMode": z.String().Optional(),
+})
 
 // EventCardProps carries edit-mode state for 422 re-renders.
 // Nil means normal view-mode rendering (the common path from TimelineDay).
@@ -24,30 +71,36 @@ type EventCardProps struct {
 
 // EventFormData is used for both initial render and error re-render of the event creation form.
 type EventFormData struct {
-	Errors            map[string]string
-	DepartureAirport  string
-	FlightNumber      string
-	Title             string
-	Location          string
-	StartTime         string
-	EndTime           string
-	Notes             string
-	BookingReference  string
-	Category          string
-	ArrivalGate       string
-	Airline           string
-	Date              string
-	ArrivalAirport    string
-	DepartureTerminal string
-	ArrivalTerminal   string
-	DepartureGate     string
-	CheckInTime       string // "2006-01-02T15:04" format, empty = not provided
-	CheckOutTime      string
-	Origin            string
-	Destination       string
-	TransportMode     string
-	TripID            int
-	Pinned            bool
+	Errors            map[string]string    `zog:"-"`
+	DepartureAirport  string               `zog:"departure_airport"`
+	FlightNumber      string               `zog:"flight_number"`
+	Title             string               `zog:"title"`
+	Location          string               `zog:"location"`
+	StartTime         string               `zog:"start_time"`
+	EndTime           string               `zog:"end_time"`
+	Notes             string               `zog:"notes"`
+	BookingReference  string               `zog:"booking_reference"`
+	Category          domain.EventCategory // Ignored, mapped through wrapper
+	ArrivalGate       string               `zog:"arrival_gate"`
+	Airline           string               `zog:"airline"`
+	Date              string               `zog:"date"`
+	ArrivalAirport    string               `zog:"arrival_airport"`
+	DepartureTerminal string               `zog:"departure_terminal"`
+	ArrivalTerminal   string               `zog:"arrival_terminal"`
+	DepartureGate     string               `zog:"departure_gate"`
+	CheckInTime       string               `zog:"check_in_time"`
+	CheckOutTime      string               `zog:"check_out_time"`
+	Origin            string               `zog:"origin"`
+	Destination       string               `zog:"destination"`
+	TransportMode     string               `zog:"transport_mode"`
+	TripID            int                  `zog:"trip_id"`
+	Pinned            bool                 `zog:"pinned"`
+}
+
+// EventFormPayload avoids type cast panics extracting string payloads over domain enum aliases
+type EventFormPayload struct {
+	Category string `zog:"category"`
+	EventFormData
 }
 
 // renderEventFormError sends a 422 response with the appropriate form template.
@@ -72,8 +125,7 @@ func NewEventHandler(eventService *service.EventService) *EventHandler {
 }
 
 func (h *EventHandler) NewPage(w http.ResponseWriter, r *http.Request) {
-	tripIDStr := chi.URLParam(r, "tripID")
-	tripID, err := strconv.Atoi(tripIDStr)
+	tripID, _, err := parseTripID(r)
 	if err != nil {
 		http.Error(w, "Invalid trip ID", http.StatusBadRequest)
 		return
@@ -98,7 +150,7 @@ func (h *EventHandler) NewPage(w http.ResponseWriter, r *http.Request) {
 	formData := &EventFormData{
 		TripID:    tripID,
 		Date:      dateStr,
-		Category:  category,
+		Category:  domain.EventCategory(category),
 		StartTime: defaults.StartTime.Format("15:04"),
 		EndTime:   defaults.EndTime.Format("15:04"),
 	}
@@ -113,182 +165,97 @@ func (h *EventHandler) NewPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
-	tripIDStr := chi.URLParam(r, "tripID")
-	tripID, err := strconv.Atoi(tripIDStr)
+	tripID, tripIDStr, err := parseTripID(r)
 	if err != nil {
 		http.Error(w, "Invalid trip ID", http.StatusBadRequest)
 		return
 	}
 
-	if err = r.ParseForm(); err != nil {
+	formPayload, formErrors, err := parseEventForm(r, domain.CategoryActivity)
+	if err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
 
-	dateStr := r.FormValue("date")
-	category := r.FormValue("category")
-	title := r.FormValue("title")
-	location := r.FormValue("location")
-	startTimeStr := r.FormValue("start_time")
-	endTimeStr := r.FormValue("end_time")
-	notes := r.FormValue("notes")
-	pinned := r.FormValue("pinned") == "on" || r.FormValue("pinned") == "true"
+	formData := formPayload.EventFormData
+	formData.Category = domain.EventCategory(formPayload.Category)
+	formData.TripID = tripID
 
-	formData := &EventFormData{
-		TripID:           tripID,
-		Date:             dateStr,
-		Category:         category,
-		Title:            title,
-		Location:         location,
-		StartTime:        startTimeStr,
-		EndTime:          endTimeStr,
-		Notes:            notes,
-		Pinned:           pinned,
-		CheckInTime:      r.FormValue("check_in_time"),
-		CheckOutTime:     r.FormValue("check_out_time"),
-		BookingReference: r.FormValue("booking_reference"),
-		Origin:           r.FormValue("origin"),
-		Destination:      r.FormValue("destination"),
-		TransportMode:    r.FormValue("transport_mode"),
-	}
-
-	// Handler pre-validates required fields for field-level errors
-	formErrors := make(map[string]string)
-
-	var serviceFlightDetails *domain.FlightDetails
-	if category == string(domain.CategoryFlight) {
-		serviceFlightDetails = parseFlightDetails(r)
-		formData.Airline = serviceFlightDetails.Airline
-		formData.FlightNumber = serviceFlightDetails.FlightNumber
-		formData.DepartureAirport = serviceFlightDetails.DepartureAirport
-		formData.ArrivalAirport = serviceFlightDetails.ArrivalAirport
-		formData.DepartureTerminal = serviceFlightDetails.DepartureTerminal
-		formData.ArrivalTerminal = serviceFlightDetails.ArrivalTerminal
-		formData.DepartureGate = serviceFlightDetails.DepartureGate
-		formData.ArrivalGate = serviceFlightDetails.ArrivalGate
-		formData.BookingReference = serviceFlightDetails.BookingReference
-
-		if serviceFlightDetails.DepartureAirport == "" {
-			formErrors["departure_airport"] = "Required"
-		}
-		if serviceFlightDetails.ArrivalAirport == "" {
-			formErrors["arrival_airport"] = "Required"
-		}
-	}
-
-	var lodgingDetails *domain.LodgingDetails
-	if category == string(domain.CategoryLodging) {
-		var parseErr error
-		lodgingDetails, parseErr = parseLodgingDetails(formData)
-		if parseErr != nil {
-			formErrors["general"] = "Invalid lodging time format"
-			formData.Errors = formErrors
-			renderEventFormError(w, r, formData)
-			return
-		}
-	}
-
-	var transitDetails *domain.TransitDetails
-	if category == string(domain.CategoryTransit) {
-		transitDetails = parseTransitDetails(formData)
-	}
-
-	startTime, err := parseDateAndTime(dateStr, startTimeStr)
-	if err != nil {
-		formErrors["start_time"] = "Invalid start time format"
+	if len(formErrors) > 0 {
 		formData.Errors = formErrors
-		renderEventFormError(w, r, formData)
+		renderEventFormError(w, r, &formData)
 		return
 	}
 
-	endTime, err := parseDateAndTime(dateStr, endTimeStr)
+	details, err := buildCategoryDetails(formData.Category, &formData)
 	if err != nil {
-		formErrors["end_time"] = "Invalid end time format"
-		formData.Errors = formErrors
-		renderEventFormError(w, r, formData)
+		formData.Errors = map[string]string{"general": "Invalid lodging time format"}
+		renderEventFormError(w, r, &formData)
+		return
+	}
+	if len(details.FormErrors) > 0 {
+		formData.Errors = details.FormErrors
+		renderEventFormError(w, r, &formData)
+		return
+	}
+
+	startTime, err := parseDateAndTime(formData.Date, formData.StartTime)
+	if err != nil {
+		formData.Errors = map[string]string{"start_time": "Invalid start time format"}
+		renderEventFormError(w, r, &formData)
+		return
+	}
+
+	endTime, err := parseDateAndTime(formData.Date, formData.EndTime)
+	if err != nil {
+		formData.Errors = map[string]string{"end_time": "Invalid end time format"}
+		renderEventFormError(w, r, &formData)
 		return
 	}
 
 	input := &service.CreateEventInput{
 		TripID:         tripID,
-		Title:          title,
-		Category:       domain.EventCategory(category),
-		Location:       location,
+		Title:          formData.Title,
+		Category:       formData.Category,
+		Location:       formData.Location,
 		StartTime:      startTime,
 		EndTime:        endTime,
-		Notes:          notes,
-		Pinned:         pinned,
-		FlightDetails:  serviceFlightDetails,
-		LodgingDetails: lodgingDetails,
-		TransitDetails: transitDetails,
+		Notes:          formData.Notes,
+		Pinned:         formData.Pinned,
+		FlightDetails:  details.FlightDetails,
+		LodgingDetails: details.LodgingDetails,
+		TransitDetails: details.TransitDetails,
 	}
 
 	if errs := service.CreateEventSchema.Validate(input); len(errs) > 0 {
-		for _, e := range errs {
-			path := strings.Join(e.Path, ".")
-			switch path {
-			case "Title":
-				formErrors["title"] = e.Message
-			case "StartTime":
-				formErrors["start_time"] = e.Message
-			case "EndTime":
-				formErrors["end_time"] = e.Message
-			case "TripID":
-				formErrors["general"] = e.Message
-			default:
-				formErrors["general"] = e.Message
-			}
-		}
-		formData.Errors = formErrors
-		renderEventFormError(w, r, formData)
+		formData.Errors = mapServiceSchemaErrors(errs)
+		renderEventFormError(w, r, &formData)
 		return
 	}
 
 	event, err := h.eventService.Create(r.Context(), input)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			// Strip the domain error prefix to avoid leaking internals to the UI
-			formErrors["general"] = strings.TrimPrefix(err.Error(), "invalid input: ")
-			formData.Errors = formErrors
-			renderEventFormError(w, r, formData)
+			formData.Errors = map[string]string{"general": strings.TrimPrefix(err.Error(), "invalid input: ")}
+			renderEventFormError(w, r, &formData)
 			return
 		}
 		http.Error(w, "Failed to create event", http.StatusInternalServerError)
 		return
 	}
 
-	// HTMX success path: return full day HTML with retarget headers
 	if r.Header.Get("HX-Request") == "true" {
-		eventDateStr := event.EventDate.Format("2006-01-02")
-
-		// Fetch all events for this day to render the full day
-		events, err := h.eventService.ListByTripAndDate(r.Context(), tripID, event.EventDate)
-		if err != nil {
+		if err := h.renderDayResponse(w, r, tripID, event.EventDate, map[string]string{"HX-Trigger": `{"close-sheet": true}`}); err != nil {
 			http.Error(w, "Failed to load events", http.StatusInternalServerError)
-			return
 		}
-
-		dayData := TimelineDayData{
-			Date:   event.EventDate,
-			Events: events,
-		}
-
-		// Set HTMX response headers for retarget to day container
-		w.Header().Set("HX-Retarget", fmt.Sprintf("#day-%s", eventDateStr))
-		w.Header().Set("HX-Reswap", "outerHTML")
-		w.Header().Set("HX-Trigger", `{"close-sheet": true}`)
-
-		templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
 		return
 	}
 
-	// Non-HTMX fallback: redirect
 	http.Redirect(w, r, "/trips/"+tripIDStr, http.StatusSeeOther)
 }
 
 func (h *EventHandler) EditPage(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, _, err := parseEventID(r)
 	if err != nil {
 		http.Error(w, "Invalid event ID", http.StatusBadRequest)
 		return
@@ -308,14 +275,13 @@ func (h *EventHandler) EditPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
-	tripIDStr := chi.URLParam(r, "tripID")
-	tripID, err := strconv.Atoi(tripIDStr)
+	tripID, tripIDStr, err := parseTripID(r)
 	if err != nil {
 		http.Error(w, "Invalid trip ID", http.StatusBadRequest)
 		return
 	}
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+
+	id, _, err := parseEventID(r)
 	if err != nil {
 		http.Error(w, "Invalid event ID", http.StatusBadRequest)
 		return
@@ -333,149 +299,65 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	oldEventDate := event.EventDate
 
-	if err = r.ParseForm(); err != nil {
+	formPayload, formErrors, err := parseEventForm(r, event.Category)
+	if err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
 
-	dateStr := r.FormValue("date")
-	startTimeStr := r.FormValue("start_time")
-	endTimeStr := r.FormValue("end_time")
-	title := r.FormValue("title")
-	location := r.FormValue("location")
-	notes := r.FormValue("notes")
-	pinned := r.FormValue("pinned") == "on" || r.FormValue("pinned") == "true"
-
-	formData := EventFormData{
-		TripID:           tripID,
-		Date:             dateStr,
-		Title:            title,
-		Location:         location,
-		StartTime:        startTimeStr,
-		EndTime:          endTimeStr,
-		Notes:            notes,
-		Pinned:           pinned,
-		CheckInTime:      r.FormValue("check_in_time"),
-		CheckOutTime:     r.FormValue("check_out_time"),
-		BookingReference: r.FormValue("booking_reference"),
-		Origin:           r.FormValue("origin"),
-		Destination:      r.FormValue("destination"),
-		TransportMode:    r.FormValue("transport_mode"),
-	}
-
-	var flightDetails *domain.FlightDetails
-	if event.Category == domain.CategoryFlight {
-		flightDetails = parseFlightDetails(r)
-		formData.Airline = flightDetails.Airline
-		formData.FlightNumber = flightDetails.FlightNumber
-		formData.DepartureAirport = flightDetails.DepartureAirport
-		formData.ArrivalAirport = flightDetails.ArrivalAirport
-		formData.DepartureTerminal = flightDetails.DepartureTerminal
-		formData.ArrivalTerminal = flightDetails.ArrivalTerminal
-		formData.DepartureGate = flightDetails.DepartureGate
-		formData.ArrivalGate = flightDetails.ArrivalGate
-		formData.BookingReference = flightDetails.BookingReference
-	}
-
-	// renderCardError sends a 422 with the inline edit card (HTMX) or redirects to
-	// the edit page (non-HTMX fallback) so the browser always gets a usable response.
-	renderCardError := func(data EventFormData) {
-		if r.Header.Get("HX-Request") == "true" {
-			if strings.Contains(r.Header.Get("HX-Current-URL"), "/edit") {
-				w.Header().Set("HX-Redirect", fmt.Sprintf("/trips/%s/events/%d/edit", tripIDStr, id))
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			w.Header().Set("HX-Retarget", fmt.Sprintf("#event-%d", id))
-			w.Header().Set("HX-Reswap", "outerHTML")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			templ.Handler(EventTimelineItem(*event, &EventCardProps{Editing: true, FormValues: data})).ServeHTTP(w, r)
-		} else {
-			http.Redirect(w, r, fmt.Sprintf("/trips/%s/events/%d/edit", tripIDStr, id), http.StatusSeeOther)
-		}
-	}
-
-	formErrors := make(map[string]string)
-
-	var serviceFlightDetails *domain.FlightDetails
-	if event.Category == domain.CategoryFlight {
-		serviceFlightDetails = flightDetails
-		if serviceFlightDetails.DepartureAirport == "" {
-			formErrors["departure_airport"] = "Required"
-		}
-		if serviceFlightDetails.ArrivalAirport == "" {
-			formErrors["arrival_airport"] = "Required"
-		}
-	}
+	formData := formPayload.EventFormData
+	formData.Category = event.Category // preserve existing category, not from form
+	formData.TripID = tripID
 
 	if len(formErrors) > 0 {
 		formData.Errors = formErrors
-		renderCardError(formData)
+		h.renderCardError(w, r, tripIDStr, id, event, &formData)
 		return
 	}
 
-	var lodgingDetails *domain.LodgingDetails
-	if event.Category == domain.CategoryLodging {
-		var parseErr error
-		lodgingDetails, parseErr = parseLodgingDetails(&formData)
-		if parseErr != nil {
-			formData.Errors = map[string]string{"general": "Invalid lodging time format"}
-			renderCardError(formData)
-			return
-		}
-	}
-
-	var transitDetails *domain.TransitDetails
-	if event.Category == domain.CategoryTransit {
-		transitDetails = parseTransitDetails(&formData)
-	}
-
-	startTime, err := parseDateAndTime(dateStr, startTimeStr)
+	details, err := buildCategoryDetails(event.Category, &formData)
 	if err != nil {
-		formErrors["start_time"] = "Invalid start time format"
-		formData.Errors = formErrors
-		renderCardError(formData)
+		formData.Errors = map[string]string{"general": "Invalid lodging time format"}
+		h.renderCardError(w, r, tripIDStr, id, event, &formData)
+		return
+	}
+	if len(details.FormErrors) > 0 {
+		formData.Errors = details.FormErrors
+		h.renderCardError(w, r, tripIDStr, id, event, &formData)
 		return
 	}
 
-	endTime, err := parseDateAndTime(dateStr, endTimeStr)
+	startTime, err := parseDateAndTime(formData.Date, formData.StartTime)
 	if err != nil {
-		formErrors["end_time"] = "Invalid end time format"
-		formData.Errors = formErrors
-		renderCardError(formData)
+		formData.Errors = map[string]string{"start_time": "Invalid start time format"}
+		h.renderCardError(w, r, tripIDStr, id, event, &formData)
+		return
+	}
+
+	endTime, err := parseDateAndTime(formData.Date, formData.EndTime)
+	if err != nil {
+		formData.Errors = map[string]string{"end_time": "Invalid end time format"}
+		h.renderCardError(w, r, tripIDStr, id, event, &formData)
 		return
 	}
 
 	category := event.Category // preserve existing category
 	input := &service.UpdateEventInput{
-		Title:          &title,
+		Title:          &formData.Title,
 		Category:       &category,
-		Location:       &location,
+		Location:       &formData.Location,
 		StartTime:      &startTime,
 		EndTime:        &endTime,
-		Notes:          &notes,
-		Pinned:         &pinned,
-		FlightDetails:  serviceFlightDetails,
-		LodgingDetails: lodgingDetails,
-		TransitDetails: transitDetails,
+		Notes:          &formData.Notes,
+		Pinned:         &formData.Pinned,
+		FlightDetails:  details.FlightDetails,
+		LodgingDetails: details.LodgingDetails,
+		TransitDetails: details.TransitDetails,
 	}
 
 	if errs := service.UpdateEventSchema.Validate(input); len(errs) > 0 {
-		for _, e := range errs {
-			path := strings.Join(e.Path, ".")
-			switch path {
-			case "Title":
-				formErrors["title"] = e.Message
-			case "StartTime":
-				formErrors["start_time"] = e.Message
-			case "EndTime":
-				formErrors["end_time"] = e.Message
-			default:
-				formErrors["general"] = e.Message
-			}
-		}
-		formData.Errors = formErrors
-		renderCardError(formData)
+		formData.Errors = mapServiceSchemaErrors(errs)
+		h.renderCardError(w, r, tripIDStr, id, event, &formData)
 		return
 	}
 
@@ -486,16 +368,14 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidInput) {
-			formErrors["general"] = strings.TrimPrefix(err.Error(), "invalid input: ")
-			formData.Errors = formErrors
-			renderCardError(formData)
+			formData.Errors = map[string]string{"general": strings.TrimPrefix(err.Error(), "invalid input: ")}
+			h.renderCardError(w, r, tripIDStr, id, event, &formData)
 			return
 		}
 		http.Error(w, "Failed to update event", http.StatusInternalServerError)
 		return
 	}
 
-	// HTMX path
 	if r.Header.Get("HX-Request") == "true" {
 		// Cross-day: full-page redirect
 		if !updatedEvent.EventDate.Equal(oldEventDate) {
@@ -505,19 +385,9 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Same day: render TimelineDay with retarget
-		events, err := h.eventService.ListByTripAndDate(r.Context(), tripID, updatedEvent.EventDate)
-		if err != nil {
+		if err := h.renderDayResponse(w, r, tripID, updatedEvent.EventDate, nil); err != nil {
 			http.Error(w, "Failed to load events", http.StatusInternalServerError)
-			return
 		}
-		newEventDateStr := updatedEvent.EventDate.Format("2006-01-02")
-		dayData := TimelineDayData{
-			Date:   updatedEvent.EventDate,
-			Events: events,
-		}
-		w.Header().Set("HX-Retarget", fmt.Sprintf("#day-%s", newEventDateStr))
-		w.Header().Set("HX-Reswap", "outerHTML")
-		templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
 		return
 	}
 
@@ -525,14 +395,13 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	tripIDStr := chi.URLParam(r, "tripID")
-	tripID, err := strconv.Atoi(tripIDStr)
+	tripID, tripIDStr, err := parseTripID(r)
 	if err != nil {
 		http.Error(w, "Invalid trip ID", http.StatusBadRequest)
 		return
 	}
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+
+	id, _, err := parseEventID(r)
 	if err != nil {
 		http.Error(w, "Invalid event ID", http.StatusBadRequest)
 		return
@@ -555,22 +424,15 @@ func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// HTMX path: return updated day HTML + trigger undo toast
 	if r.Header.Get("HX-Request") == "true" {
-		events, err := h.eventService.ListByTripAndDate(r.Context(), tripID, eventDate)
-		if err != nil {
+		if err := h.renderDayResponse(w, r, tripID, eventDate, nil); err != nil {
 			http.Error(w, "Failed to load events", http.StatusInternalServerError)
 			return
 		}
-		dayData := TimelineDayData{
-			Date:   eventDate,
-			Events: events,
-		}
-		eventDateStr := eventDate.Format("2006-01-02")
 		// Cannot use HX-Trigger header here because the triggering element (delete button)
 		// is removed from the DOM by the swap, so the event wouldn't bubble to window.
 		// Instead, we append a script to dispatch the event directly on window.
-		templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
+		eventDateStr := eventDate.Format("2006-01-02")
 		fmt.Fprintf(w, `<script>window.dispatchEvent(new CustomEvent('showundotoast', {detail: {"eventId": %d, "tripId": %d, "eventDate": "%s"}}));</script>`, id, tripID, eventDateStr)
 		return
 	}
@@ -579,14 +441,13 @@ func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) Restore(w http.ResponseWriter, r *http.Request) {
-	tripIDStr := chi.URLParam(r, "tripID")
-	tripID, err := strconv.Atoi(tripIDStr)
+	tripID, tripIDStr, err := parseTripID(r)
 	if err != nil {
 		http.Error(w, "Invalid trip ID", http.StatusBadRequest)
 		return
 	}
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+
+	id, _, err := parseEventID(r)
 	if err != nil {
 		http.Error(w, "Invalid event ID", http.StatusBadRequest)
 		return
@@ -607,20 +468,61 @@ func (h *EventHandler) Restore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events, err := h.eventService.ListByTripAndDate(r.Context(), tripID, event.EventDate)
-	if err != nil {
+	if err := h.renderDayResponse(w, r, tripID, event.EventDate, map[string]string{"HX-Trigger": `{"hideundotoast": true}`}); err != nil {
 		http.Error(w, "Failed to load events", http.StatusInternalServerError)
-		return
 	}
-	dayData := TimelineDayData{
-		Date:   event.EventDate,
-		Events: events,
+}
+
+func mapZogErrorsToForm(errs z.ZogIssueList) map[string]string {
+	formErrors := make(map[string]string)
+	for _, e := range errs {
+		path := strings.Join(e.Path, ".")
+		// Zog lowercase's keys from struct tags, but sometimes uses TitleCase if no tag is provided for TopLevel.
+		// For our HTML forms we generally want lowercase underscore maps matching HTML name= attributes.
+		key := strings.ToLower(path)
+
+		// Overrides matching exact struct names mapped back to snake_case for UI.
+		// E.g 'DepartureAirport' -> 'departure_airport'
+		switch path {
+		case "DepartureAirport":
+			key = "departure_airport"
+		case "ArrivalAirport":
+			key = "arrival_airport"
+		case "StartTime":
+			key = "start_time"
+		case "EndTime":
+			key = "end_time"
+		case "Date":
+			key = "date"
+		case "TripID":
+			key = "general"
+		}
+
+		formErrors[key] = e.Message
 	}
-	eventDateStr := event.EventDate.Format("2006-01-02")
-	w.Header().Set("HX-Retarget", fmt.Sprintf("#day-%s", eventDateStr))
-	w.Header().Set("HX-Reswap", "outerHTML")
-	w.Header().Set("HX-Trigger", `{"hideundotoast": true}`)
-	templ.Handler(TimelineDay(tripID, dayData)).ServeHTTP(w, r)
+	return formErrors
+}
+
+func parseFlightDetails(formData *EventFormData) (fd *domain.FlightDetails, formErrors map[string]string) {
+	fd = &domain.FlightDetails{
+		Airline:           formData.Airline,
+		FlightNumber:      formData.FlightNumber,
+		DepartureAirport:  formData.DepartureAirport,
+		ArrivalAirport:    formData.ArrivalAirport,
+		DepartureTerminal: formData.DepartureTerminal,
+		ArrivalTerminal:   formData.ArrivalTerminal,
+		DepartureGate:     formData.DepartureGate,
+		ArrivalGate:       formData.ArrivalGate,
+		BookingReference:  formData.BookingReference,
+	}
+	formErrors = make(map[string]string)
+	if fd.DepartureAirport == "" {
+		formErrors["departure_airport"] = "Required"
+	}
+	if fd.ArrivalAirport == "" {
+		formErrors["arrival_airport"] = "Required"
+	}
+	return fd, formErrors
 }
 
 func parseLodgingDetails(formData *EventFormData) (*domain.LodgingDetails, error) {
@@ -649,19 +551,5 @@ func parseTransitDetails(formData *EventFormData) *domain.TransitDetails {
 		Origin:        formData.Origin,
 		Destination:   formData.Destination,
 		TransportMode: formData.TransportMode,
-	}
-}
-
-func parseFlightDetails(r *http.Request) *domain.FlightDetails {
-	return &domain.FlightDetails{
-		Airline:           r.FormValue("airline"),
-		FlightNumber:      r.FormValue("flight_number"),
-		DepartureAirport:  r.FormValue("departure_airport"),
-		ArrivalAirport:    r.FormValue("arrival_airport"),
-		DepartureTerminal: r.FormValue("departure_terminal"),
-		ArrivalTerminal:   r.FormValue("arrival_terminal"),
-		DepartureGate:     r.FormValue("departure_gate"),
-		ArrivalGate:       r.FormValue("arrival_gate"),
-		BookingReference:  r.FormValue("booking_reference"),
 	}
 }

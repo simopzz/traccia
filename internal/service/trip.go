@@ -6,26 +6,20 @@ import (
 	"time"
 
 	z "github.com/Oudwins/zog"
-	"github.com/Oudwins/zog/conf"
 
 	"github.com/simopzz/traccia/internal/domain"
 )
 
-var dateCoercer = conf.TimeCoercerFactory(func(val string) (time.Time, error) {
-	// HTMX uses YYYY-MM-DD for date inputs
-	return time.Parse("2006-01-02", val)
-})
-
 var CreateTripSchema = z.Struct(z.Shape{
-	"StartDate": z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("start date is required")),
-	"EndDate":   z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("end date is required")),
+	"StartDate": z.Time().Required(z.Message("start date is required")),
+	"EndDate":   z.Time().Required(z.Message("end date is required")),
 	"Name":      z.String().Required(z.Message("name is required")),
 })
 
 var UpdateTripSchema = z.Struct(z.Shape{
 	"Name":      z.Ptr(z.String().Required(z.Message("name is required"))),
-	"StartDate": z.Ptr(z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("start date is required"))),
-	"EndDate":   z.Ptr(z.Time(z.WithCoercer(dateCoercer)).Required(z.Message("end date is required"))),
+	"StartDate": z.Ptr(z.Time().Required(z.Message("start date is required"))),
+	"EndDate":   z.Ptr(z.Time().Required(z.Message("end date is required"))),
 })
 
 type TripService struct {

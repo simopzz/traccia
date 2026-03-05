@@ -9,11 +9,30 @@ import (
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 
+	z "github.com/Oudwins/zog"
+	"github.com/Oudwins/zog/conf"
 	zh "github.com/Oudwins/zog/zhttp"
 
 	"github.com/simopzz/traccia/internal/domain"
 	"github.com/simopzz/traccia/internal/service"
 )
+
+var htmxDateCoercer = conf.TimeCoercerFactory(func(val string) (time.Time, error) {
+	// HTMX uses YYYY-MM-DD for date inputs
+	return time.Parse("2006-01-02", val)
+})
+
+var createTripFormSchema = z.Struct(z.Shape{
+	"StartDate": z.Time(z.WithCoercer(htmxDateCoercer)).Required(z.Message("start date is required")),
+	"EndDate":   z.Time(z.WithCoercer(htmxDateCoercer)).Required(z.Message("end date is required")),
+	"Name":      z.String().Required(z.Message("name is required")),
+})
+
+var updateTripFormSchema = z.Struct(z.Shape{
+	"Name":      z.Ptr(z.String().Required(z.Message("name is required"))),
+	"StartDate": z.Ptr(z.Time(z.WithCoercer(htmxDateCoercer)).Required(z.Message("start date is required"))),
+	"EndDate":   z.Ptr(z.Time(z.WithCoercer(htmxDateCoercer)).Required(z.Message("end date is required"))),
+})
 
 type TripHandler struct {
 	tripService  *service.TripService
@@ -49,7 +68,7 @@ func (h *TripHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := &service.CreateTripInput{}
-	errs := service.CreateTripSchema.Parse(zh.Request(r), input)
+	errs := createTripFormSchema.Parse(zh.Request(r), input)
 	if errs != nil {
 		templ.Handler(TripNewPage(input, &FormErrors{General: errs[0].Message})).ServeHTTP(w, r)
 		return
@@ -146,32 +165,9 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input service.UpdateTripInput
-	errs := service.UpdateTripSchema.Parse(zh.Request(r), &input)
+	errs := updateTripFormSchema.Parse(zh.Request(r), &input)
 	if errs != nil {
-		trip, getErr := h.tripService.GetByID(r.Context(), id)
-		if getErr != nil {
-			http.Error(w, "Failed to load trip", http.StatusInternalServerError)
-			return
-		}
-		// Overlay user's form input so the form preserves what they typed
-		if input.Name != nil {
-			trip.Name = *input.Name
-		}
-		if input.Destination != nil {
-			trip.Destination = *input.Destination
-		}
-		if input.StartDate != nil {
-			trip.StartDate = *input.StartDate
-		}
-		if input.EndDate != nil {
-			trip.EndDate = *input.EndDate
-		}
-		eventCount, countErr := h.eventService.CountByTrip(r.Context(), id)
-		if countErr != nil {
-			http.Error(w, "Failed to count events", http.StatusInternalServerError)
-			return
-		}
-		templ.Handler(TripEditPage(trip, eventCount, &FormErrors{General: errs[0].Message})).ServeHTTP(w, r)
+		h.renderTripEditError(w, r, id, input, &FormErrors{General: errs[0].Message})
 		return
 	}
 
@@ -182,30 +178,7 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidInput) || errors.Is(err, domain.ErrDateRangeConflict) {
-			trip, getErr := h.tripService.GetByID(r.Context(), id)
-			if getErr != nil {
-				http.Error(w, "Failed to load trip", http.StatusInternalServerError)
-				return
-			}
-			// Overlay user's form input so the form preserves what they typed
-			if input.Name != nil {
-				trip.Name = *input.Name
-			}
-			if input.Destination != nil {
-				trip.Destination = *input.Destination
-			}
-			if input.StartDate != nil {
-				trip.StartDate = *input.StartDate
-			}
-			if input.EndDate != nil {
-				trip.EndDate = *input.EndDate
-			}
-			eventCount, countErr := h.eventService.CountByTrip(r.Context(), id)
-			if countErr != nil {
-				http.Error(w, "Failed to count events", http.StatusInternalServerError)
-				return
-			}
-			templ.Handler(TripEditPage(trip, eventCount, newFormErrors(err))).ServeHTTP(w, r)
+			h.renderTripEditError(w, r, id, input, newFormErrors(err))
 			return
 		}
 		http.Error(w, "Failed to update trip", http.StatusInternalServerError)
@@ -218,6 +191,40 @@ func (h *TripHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/trips/"+strconv.Itoa(id), http.StatusSeeOther)
+}
+
+// renderTripEditError overlays submitted form input onto the current trip and
+// re-renders the edit page with validation errors (422 Unprocessable Entity).
+func (h *TripHandler) renderTripEditError(
+	w http.ResponseWriter, r *http.Request,
+	id int, input service.UpdateTripInput, formErr *FormErrors,
+) {
+	trip, err := h.tripService.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Failed to load trip", http.StatusInternalServerError)
+		return
+	}
+	// Overlay user's form input so the form preserves what they typed
+	if input.Name != nil {
+		trip.Name = *input.Name
+	}
+	if input.Destination != nil {
+		trip.Destination = *input.Destination
+	}
+	if input.StartDate != nil {
+		trip.StartDate = *input.StartDate
+	}
+	if input.EndDate != nil {
+		trip.EndDate = *input.EndDate
+	}
+
+	eventCount, err := h.eventService.CountByTrip(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Failed to count events", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusUnprocessableEntity)
+	templ.Handler(TripEditPage(trip, eventCount, formErr)).ServeHTTP(w, r)
 }
 
 func (h *TripHandler) Delete(w http.ResponseWriter, r *http.Request) {

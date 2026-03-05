@@ -96,7 +96,7 @@ templ EventCreateForm(data *EventFormData) {
 			hx-validate="true"
 			x-data={ fmt.Sprintf(`{ selected: '%s' }`, data.Category) }
 		>
-			@TypeSelector(data.Category)
+			@TypeSelector(string(data.Category))
 			<input type="hidden" name="date" value={ data.Date }/>
 			<!-- Title -->
 			<div class="mb-4">
