@@ -3,15 +3,22 @@ package config
 import (
 	"log/slog"
 
-	"github.com/caarlos0/env/v11"
+	z "github.com/Oudwins/zog"
+	"github.com/Oudwins/zog/zenv"
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	ServerAddress string `env:"SERVER_ADDRESS" envDefault:":3000"`
-	DatabaseURL   string `env:"DATABASE_URL" envDefault:"postgres://traccia:traccia@localhost:5432/traccia?sslmode=disable"`
-	Environment   string `env:"ENVIRONMENT" envDefault:"development"`
+	ServerAddress string `zog:"SERVER_ADDRESS"`
+	DatabaseURL   string `zog:"DATABASE_URL"`
+	Environment   string `zog:"ENVIRONMENT"`
 }
+
+var configSchema = z.Struct(z.Shape{
+	"ServerAddress": z.String().Default(":3000"),
+	"DatabaseURL":   z.String().Default("postgres://traccia:traccia@localhost:5432/traccia?sslmode=disable"),
+	"Environment":   z.String().Default("development"),
+})
 
 func Load() *Config {
 	if err := godotenv.Load(); err != nil {
@@ -19,9 +26,10 @@ func Load() *Config {
 	}
 
 	var cfg Config
-	if err := env.Parse(&cfg); err != nil {
-		slog.Error("Failed to parse environment variables", "error", err)
-		panic(err)
+	errs := configSchema.Parse(zenv.NewDataProvider(), &cfg)
+	if errs != nil {
+		slog.Error("Failed to parse environment variables", "error", errs)
+		panic(errs)
 	}
 
 	return &cfg

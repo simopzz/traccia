@@ -30,7 +30,7 @@ run: build
 test:
     go test -v -race ./...
 
-# Run end-to-end tests (requires server running)
+# Run end-to-end tests
 test-e2e:
     go test -v -tags e2e ./tests/e2e/...
 
@@ -43,6 +43,10 @@ fmt:
 # Run formatter then golangci-lint
 lint: fmt
     golangci-lint run
+
+# Find unreachable code
+deadcode:
+    @deadcode ./...
 
 # Run sqlc and templ code generation
 generate:
@@ -63,6 +67,7 @@ tools: tailwind-install
     @command -v goimports >/dev/null || go install golang.org/x/tools/cmd/goimports@latest
     @command -v betteralign >/dev/null || go install github.com/dkorunic/betteralign/cmd/betteralign@latest
     @command -v migrate >/dev/null || go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+    @command -v deadcode >/dev/null || go install golang.org/x/tools/cmd/deadcode@latest
     go run github.com/playwright-community/playwright-go/cmd/playwright@latest install --with-deps
 
 # Download Tailwind CSS v4 standalone CLI
@@ -93,6 +98,15 @@ migrate-up:
 # Rollback database migrations
 migrate-down:
     migrate -path migrations -database "postgres://traccia:traccia@localhost:5432/traccia?sslmode=disable" down
+
+# Reset the database to a clean state and seed it
+db-reset:
+    @echo "y" | migrate -path migrations -database "postgres://traccia:traccia@localhost:5432/traccia?sslmode=disable" drop
+    just migrate-up
+
+# Seed the database with sample data
+seed:
+    go run ./cmd/seed/main.go
 
 # Remove build artifacts
 clean:

@@ -11,26 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countEventsByTripAndDateRange = `-- name: CountEventsByTripAndDateRange :one
-SELECT COUNT(*)::int AS event_count
-FROM events
-WHERE trip_id = $1
-  AND (event_date < $2 OR event_date > $3)
-`
-
-type CountEventsByTripAndDateRangeParams struct {
-	TripID      int32
-	EventDate   pgtype.Date
-	EventDate_2 pgtype.Date
-}
-
-func (q *Queries) CountEventsByTripAndDateRange(ctx context.Context, arg CountEventsByTripAndDateRangeParams) (int32, error) {
-	row := q.db.QueryRow(ctx, countEventsByTripAndDateRange, arg.TripID, arg.EventDate, arg.EventDate_2)
-	var event_count int32
-	err := row.Scan(&event_count)
-	return event_count, err
-}
-
 const createTrip = `-- name: CreateTrip :one
 INSERT INTO trips (name, destination, start_date, end_date, user_id)
 VALUES ($1, $2, $3, $4, $5)

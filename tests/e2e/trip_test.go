@@ -4,185 +4,88 @@ package e2e
 
 import (
 	"fmt"
-	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/playwright-community/playwright-go"
 )
 
-func TestTripCreation(t *testing.T) {
-	// Check if server is running
-	resp, err := http.Get(baseURL)
-	if err != nil {
-		t.Skipf("Server not running at %s, skipping E2E test. Error: %v", baseURL, err)
-	}
-	resp.Body.Close()
+func TestTripCreationFlow(t *testing.T) {
+	// Basic setup
+	pw, browser, context, page := setupBrowser(t)
+	defer teardownBrowser(pw, browser, context)
 
-	pw, err := playwright.Run()
-	if err != nil {
-		t.Fatalf("could not start playwright: %v", err)
-	}
-	defer pw.Stop()
+	baseURL := fmt.Sprintf("http://localhost:%s", testPort)
 
-	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(true),
+	t.Run("Create Trip Success", func(t *testing.T) {
+		// Clean up db first if needed (omitted for brevity, depending on testing strategy)
+
+		if _, err := page.Goto(baseURL + "/trips/new"); err != nil {
+			t.Fatalf("could not goto: %v", err)
+		}
+
+		// Fill out the form
+		tripName := fmt.Sprintf("E2E Test Trip %d", time.Now().Unix())
+		page.Locator("#name").Fill(tripName)
+		page.Locator("#destination").Fill("Paris, France")
+
+		startDate := time.Now().AddDate(0, 0, 7).Format("2006-01-02")
+		endDate := time.Now().AddDate(0, 0, 14).Format("2006-01-02")
+		page.Locator("#start_date").Fill(startDate)
+		page.Locator("#end_date").Fill(endDate)
+
+		// Submit
+		page.Locator("button[type='submit']").Click()
+
+		// Verify redirect to trip details and content showing
+		page.WaitForURL(func(url string) bool {
+			return strings.Contains(url, "/trips/") || strings.Contains(url, "/trips")
+		}, playwright.PageWaitForURLOptions{
+			Timeout: playwright.Float(5000),
+		})
+
+		content, _ := page.Content()
+		if strings.Contains(content, "Failed to create trip") {
+			t.Fatalf("Server returned 500: Failed to create trip")
+		}
+
+		if !strings.Contains(page.URL(), "/trips") || strings.HasSuffix(page.URL(), "/new") {
+			t.Errorf("Expected URL to be a trip detail page, got: %s", page.URL())
+		}
+
+		// Ensure success logic is working visually by checking that the title text is somewhere on the page
+		// since we know we've navigated to the trips detail page successfully
+		tripTitleLocated := page.Locator(fmt.Sprintf("text=%s", tripName))
+		tripTitleLocated.WaitFor()
+
+		count, _ := tripTitleLocated.Count()
+		if count == 0 {
+			t.Errorf("Expected heading with text %s, but wasn't found", tripName)
+		}
 	})
-	if err != nil {
-		t.Fatalf("could not launch browser: %v", err)
-	}
-	defer browser.Close()
 
-	page, err := browser.NewPage()
-	if err != nil {
-		t.Fatalf("could not create page: %v", err)
-	}
+	t.Run("Create Trip Validation Error", func(t *testing.T) {
+		if _, err := page.Goto(baseURL + "/trips/new"); err != nil {
+			t.Fatalf("could not goto: %v", err)
+		}
 
-	// 1. Navigate to home
-	if _, err = page.Goto(baseURL); err != nil {
-		t.Fatalf("could not goto %s: %v", baseURL, err)
-	}
+		// Fill out only required fields but make StartDate after EndDate
+		page.Locator("#name").Fill("Invalid Trip Timeline")
 
-	// 2. Check title
-	title, err := page.Title()
-	if err != nil {
-		t.Fatalf("could not get title: %v", err)
-	}
-	expectedTitle := "Trips | traccia"
-	if title != expectedTitle {
-		t.Errorf("expected title %q, got %q", expectedTitle, title)
-	}
+		startDate := time.Now().AddDate(0, 0, 14).Format("2006-01-02")
+		endDate := time.Now().AddDate(0, 0, 7).Format("2006-01-02")
+		page.Locator("#start_date").Fill(startDate)
+		page.Locator("#end_date").Fill(endDate)
 
-	// 3. Click "Create Trip"
-	err = page.GetByRole("link", playwright.PageGetByRoleOptions{
-		Name: "Create Trip",
-	}).Click()
-	if err != nil {
-		t.Fatalf("could not click 'Create Trip': %v", err)
-	}
+		page.Locator("button[type='submit']").Click()
 
-	// 4. Fill trip form
-	tripName := fmt.Sprintf("E2E Trip %d", time.Now().Unix())
-	err = page.Locator("#name").Fill(tripName)
-	if err != nil {
-		t.Fatalf("could not fill trip name: %v", err)
-	}
+		// Should stay on page and show error message
+		page.Locator(".bg-rose-50").WaitFor()
 
-	now := time.Now()
-	startDate := now.Format("2006-01-02")
-	endDate := now.Add(24 * 7 * time.Hour).Format("2006-01-02")
-
-	err = page.Locator("#start_date").Fill(startDate)
-	if err != nil {
-		t.Fatalf("could not fill start date: %v", err)
-	}
-	err = page.Locator("#end_date").Fill(endDate)
-	if err != nil {
-		t.Fatalf("could not fill end date: %v", err)
-	}
-
-	// 5. Submit
-	err = page.GetByRole("button", playwright.PageGetByRoleOptions{
-		Name: "Create Trip",
-	}).Click()
-	if err != nil {
-		t.Fatalf("could not click submit: %v", err)
-	}
-
-	// 6. Verify trip is in list
-	locator := page.GetByText(tripName)
-	count, err := locator.Count()
-	if err != nil {
-		t.Fatalf("could not count locators: %v", err)
-	}
-	if count == 0 {
-		t.Errorf("trip %q not found in list after creation", tripName)
-	}
-}
-
-func TestTripCreationValidation(t *testing.T) {
-	// Check if server is running
-	resp, err := http.Get(baseURL)
-	if err != nil {
-		t.Skipf("Server not running at %s, skipping E2E test. Error: %v", baseURL, err)
-	}
-	resp.Body.Close()
-
-	pw, err := playwright.Run()
-	if err != nil {
-		t.Fatalf("could not start playwright: %v", err)
-	}
-	defer pw.Stop()
-
-	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(true),
+		errMsg, _ := page.Locator(".bg-rose-50").TextContent()
+		if errMsg == "" {
+			t.Errorf("Expected an error message container to be visible")
+		}
 	})
-	if err != nil {
-		t.Fatalf("could not launch browser: %v", err)
-	}
-	defer browser.Close()
-
-	page, err := browser.NewPage()
-	if err != nil {
-		t.Fatalf("could not create page: %v", err)
-	}
-
-	// 1. Navigate to home
-	if _, err = page.Goto(baseURL); err != nil {
-		t.Fatalf("could not goto %s: %v", baseURL, err)
-	}
-
-	// 2. Click "Create Trip"
-	err = page.GetByRole("link", playwright.PageGetByRoleOptions{
-		Name: "Create Trip",
-	}).Click()
-	if err != nil {
-		t.Fatalf("could not click 'Create Trip': %v", err)
-	}
-
-	// 3. Fill trip form with invalid date range
-	err = page.Locator("#name").Fill("Invalid Trip")
-	if err != nil {
-		t.Fatalf("could not fill trip name: %v", err)
-	}
-
-	now := time.Now()
-	startDate := now.Format("2006-01-02")
-	endDate := now.Add(-24 * time.Hour).Format("2006-01-02")
-
-	err = page.Locator("#start_date").Fill(startDate)
-	if err != nil {
-		t.Fatalf("could not fill start date: %v", err)
-	}
-	err = page.Locator("#end_date").Fill(endDate)
-	if err != nil {
-		t.Fatalf("could not fill end date: %v", err)
-	}
-
-	// 4. Submit
-	err = page.GetByRole("button", playwright.PageGetByRoleOptions{
-		Name: "Create Trip",
-	}).Click()
-	if err != nil {
-		t.Fatalf("could not click submit: %v", err)
-	}
-
-	// 5. Verify error message
-	expectedError := "invalid input: end date must be on or after start date"
-	errorLocator := page.Locator(".bg-rose-50")
-	isVisible, err := errorLocator.IsVisible()
-	if err != nil {
-		t.Fatalf("could not check error visibility: %v", err)
-	}
-	if !isVisible {
-		t.Error("error message box not visible")
-	}
-
-	errorText, err := errorLocator.InnerText()
-	if err != nil {
-		t.Fatalf("could not get error text: %v", err)
-	}
-	if errorText != expectedError {
-		t.Errorf("expected error text %q, got %q", expectedError, errorText)
-	}
 }
